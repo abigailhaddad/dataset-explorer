@@ -1,8 +1,8 @@
 # Dataset Explorer
 
-A static page that lets anyone search, filter, sort, page through, link to and download a table that lives on Hugging Face. There is no server and no build step. One `index.html`, one `app.js`, one `style.css`, and one JSON config per dataset.
+A static page for searching, filtering, charting and downloading tables that live on Hugging Face. No server, no build step: `index.html`, `app.js`, `style.css`, and one JSON config per dataset.
 
-The browser runs [DuckDB-WASM](https://duckdb.org/docs/api/wasm/overview.html) and queries the Parquet or CSV file at its Hugging Face `resolve` URL. The page never holds a copy of the data, so it shows what is published now.
+The browser runs [DuckDB-WASM](https://duckdb.org/docs/api/wasm/overview.html) and queries the Parquet or CSV file at its Hugging Face URL. The page holds no copy of the data, so it shows what is published now. The look follows the USAJOBS data site.
 
 ## Run it
 
@@ -13,69 +13,65 @@ python3 -m http.server 8770
 # open http://127.0.0.1:8770/
 ```
 
-Open `?d=<id>` to pick a dataset, for example `?d=eeoc`. With no `d` you get the list.
+`?d=<id>` picks a dataset (`?d=eeoc`). With no `d`, or an unknown one, you get the list. Aliases work too: `?d=eeoc-decisions` opens `eeoc`.
 
 ## What it does
 
-- Search across the columns the config names (every word must match somewhere).
-- Filters per column: pick-list (several values), "contains" text, and number or date ranges.
-- Click a column header to sort. Paging runs in SQL (`LIMIT`/`OFFSET`), so it stays fast on large tables.
-- Click a row for a detail panel with every column and links to the source documents.
-- Download the filtered rows as CSV (up to 250,000 rows).
-- Every view is in the URL (search, filters, sort, page, open row), so a link reproduces it. Unknown or invalid values in a link are ignored with a visible note.
+- Search, "+ Add Filter" chips (pick-list, contains, number or date range), sort, paging in SQL.
+- Stat cards and charts that recompute for the current filters. Each chart has a "Table" under it with the numbers.
+- Row detail panel with links to the source documents.
+- Copy Link and Download CSV (up to 250,000 rows). Every view is in the URL; bad values in a link are ignored with a note.
 - Light and dark, and a card layout under 640 px.
 
-URL form: `?d=eeoc&q=postal&f.agency=A&f.agency=B&f.decision_date.min=2026-01-01&sort=decision_date&dir=desc&page=2&open=<key>`. A blank value in a pick-list is `__blank__`.
+URL form: `?d=eeoc&q=postal&f.agency=A&f.agency=B&f.decision_date.min=2026-01-01&sort=decision_date&dir=desc&page=2&open=<key>`. A blank in a pick-list is `__blank__`.
 
 ## Add a dataset
 
-1. Copy `configs/eeoc.json` to `configs/<id>.json` (ids are lowercase letters, digits and hyphens).
-2. Add `{ "id", "title", "blurb" }` to `configs/index.json`.
-3. Fill in the config:
+1. Copy `configs/eeoc.json` to `configs/<id>.json` (lowercase letters, digits, hyphens).
+2. Add `{ "id", "title", "blurb", "aliases" }` to `configs/index.json`. `aliases` are other names that should open it, such as the Hugging Face dataset name.
+3. Fill in the config.
 
 | Field | Meaning |
 |---|---|
-| `title`, `blurb` | Heading and one-line description. |
-| `hfDataset` | `owner/name`. The page reads its last-changed date from the Hugging Face API. |
+| `title`, `blurb` | Heading and subtitle. Keep the subtitle under about 12 words. |
+| `hfDataset` | `owner/name`. The "Updated" date comes from the Hugging Face API. |
 | `source.format` | `parquet` or `csv`. |
-| `source.urls` | One or more `resolve` URLs. Several files are read as one table. |
-| `source.materialize` | `true` loads the files into memory once. Use it for a table split into many small files. |
-| `source.csvOptions` | Extra `read_csv` options. CSVs are read as all text, then cast per column. |
-| `key` | A column that is unique per row. Used for sorting ties, the detail panel and `open=` links. |
-| `asOf` | `{ "sql": "SELECT ... FROM t", "label": "... {value}." }`, shown under the title. Cast to text in the SQL. |
-| `covers`, `caveats` | What the table covers, and the warnings. Shown on the page. Say what is excluded or model-made. |
+| `source.urls` | One or more `resolve` URLs, read as one table. |
+| `source.discover` | `{ "hfDataset", "path" }`. Lists the files under that folder when the page loads, following the API's paging, instead of fixed `urls`. Use it when files get renamed or merged. |
+| `source.materialize` | `true` loads the files into memory once. Helps when a table is many small files, or when charts need many group-bys. |
+| `source.csvOptions` | Extra `read_csv` options. CSVs are read as text, then cast per column. |
+| `key` | A column unique per row. Used for sort ties, the detail panel and `open=`. |
+| `covers`, `caveats` | Shown in the collapsed "About this data". Keep to three short caveats, each one a reader would otherwise get wrong. Put column-level notes in `help`. |
 | `links` | Dataset card, code, source. |
-| `searchColumns` | Text columns the search box looks in. |
-| `defaultSort` | `{ "col", "dir" }`. |
-| `pageSize` | 1 to 500. |
+| `searchColumns`, `defaultSort`, `pageSize` | Search columns (text), `{ "col", "dir" }`, 1 to 500. |
 | `detail` | `{ "title": "{col} ...", "links": [{ "label", "href", "showIf": { "col", "equals" } }] }`. |
-| `columns` | One entry per column (below). Only listed columns are read. |
+| `stats` | Stat cards: `{ "label", "expr", "hint" }`. `expr` is a SQL aggregate over `t`, such as `count(DISTINCT agency)`. Label: 1 to 3 words. |
+| `charts` | `{ "type", "title", "label", "value", "unit", "limit" }`. See below. |
+| `columns` | One per column (below). Only listed columns are read. |
 
-Each column: `key`, `label`, `type` (`text`, `number`, `date`, `bool`), and optionally `filter` (`select`, `text`, or `range` for numbers and dates), `show: false` (kept for the detail panel and CSV but not in the grid), `format: "currency"`, `link` (a template that makes the cell a link), and `expr` (a SQL expression over the source columns, for a computed key).
+Charts. `label` is a SQL expression over `t`; `value` defaults to `count(*)`.
 
-Templates use `{column}` for the raw value and `{column:enc}` for a URL-encoded one. Links must be http or https.
+- `month`: `label` must give `YYYY-MM` (for example `strftime(date, '%Y-%m')`). Months with no rows are drawn as zero, so a gap shows as a gap.
+- `year`: same, `YYYY`.
+- `top`: the `limit` largest groups (default 10, max 50), as horizontal bars.
 
-The page checks the config when it loads and stops with a plain message if a column is missing from the file, a template names an unknown column, or the file can't be read.
+Rows whose label is blank are left out of the bars and counted in a note under the chart.
+
+Each column: `key`, `label`, `type` (`text`, `number`, `date`, `bool`), and optionally `filter` (`select`, `text`, or `range`), `show: false`, `format: "currency"`, `link` (a URL template), `help` (hover text on the header and in the detail panel), and `expr` (a SQL expression for a computed column).
+
+Templates use `{column}` for the value and `{column:enc}` for a URL-encoded one. Links must be http or https. The page checks the config on load and stops with a plain message if a column is missing from the file or a template names an unknown column.
 
 ## Host it
 
-Any static host works: Cloudflare Pages, Netlify, Vercel, GitHub Pages, or an S3 bucket. Upload the folder as is. Nothing runs server-side.
-
-- The page loads DuckDB-WASM from `cdn.jsdelivr.net` (version pinned in `app.js`). Visitors need to reach it and `huggingface.co`.
-- Hugging Face allows cross-origin range requests, which is what lets the browser read only the parts of a Parquet file it needs. Check this still holds if you point at another host.
-- A dataset needs to be public. There is no place for a token.
+Any static host works: upload the folder as is. Visitors need to reach `cdn.jsdelivr.net` (DuckDB-WASM 1.29.0 and Chart.js 4.4.0, both pinned), Google Fonts and `huggingface.co`. Hugging Face allows cross-origin range requests, which is what lets the browser read parts of a Parquet file. Datasets must be public.
 
 ## Limits
 
-- First load downloads and starts the database engine (a few MB) and then reads the table's metadata. Measured on a fast connection: 1.4 s for a 1 MB CSV, 3.2 s for a 0.7 MB Parquet, 3.7 s for a 116,000-row Parquet, 6.7 s for a 17 MB Parquet. A table split into 87 small files took 37 s (86 s without `materialize`). Fewer, larger files open much faster.
-- Pick-list counts are for the whole table, not the current filters.
-- Hugging Face can throttle many fast requests (HTTP 429). The page shows a message and asks you to wait. We did not see throttling in testing.
-- CSV exports open in a spreadsheet as numbers. Open them as text so leading zeros survive.
+- First open downloads the database engine, then reads the table's metadata. Measured on a fast connection: EEOC decisions 2.3 s, DoD (3 files) 4.2 s, J&A and the EEOC listing a few seconds. The same DoD table as 87 small files took 37 s, so fewer, larger files matter.
+- Pick-list counts cover the whole table, not the current filters.
+- Hugging Face can throttle many fast requests (HTTP 429). The page says so. We did not see it in testing.
+- Charts use Chart.js, with one color and no legend. Long labels are shortened on narrow screens; the Table under each chart and the hover tooltip have the full text.
 
-## Where the patterns came from
+## Checked
 
-DuckDB-WASM startup (worker via a blob and `importScripts`) follows `federal-hiring-explorer`. Filter chips, the narrow-the-list pick-list and shareable URLs follow `regulations-comment-explorer`, `terminations` and the `shareable-filter-urls` skill. Config-driven columns come from the older `data-explorer`, now with SQL in place of in-memory rows.
-
-## Tests
-
-There is no automated test suite yet. The numbers in the report that came with this were checked by running the same filters in Python with DuckDB reading the same files and comparing counts, and by comparing an exported CSV with the source field by field.
+Stat cards and chart totals were compared with an independent DuckDB (Python) count over the same files, for EEOC decisions, OPM union contracts, J&A and DoD, with and without filters, and for the EEOC listing without filters. All matched. There is no automated test suite.

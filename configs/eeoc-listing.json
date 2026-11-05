@@ -1,7 +1,7 @@
 {
  "id": "eeoc-listing",
  "title": "EEOC file listing",
- "blurb": "Every link on EEOC's appellate decisions page, as of the last crawl. An index of files, not of decisions.",
+ "blurb": "Every file EEOC lists on its appeals page.",
  "hfDataset": "abigailhaddad/eeoc-appellate-decisions",
  "source": {
   "format": "parquet",
@@ -10,16 +10,11 @@
   ]
  },
  "key": "url",
- "asOf": {
-  "sql": "SELECT CAST(max(first_seen) AS VARCHAR) FROM t",
-  "label": "Newest link first seen: {value}."
- },
- "covers": "One row per link listed on https://www.eeoc.gov/federal-sector/appellate-decisions. The first full crawl was 2026-11-01 and matched the site's own total that day; a daily job adds new links.",
+ "covers": "One row per link on eeoc.gov/federal-sector/appellate-decisions. A daily job adds new links.",
  "caveats": [
-  "The posted date is the date in the file's folder name on eeoc.gov. It is when EEOC posted the file, not when the decision was issued.",
-  "The number in a file name does not reliably identify a decision. Many numbers appear in more than one file, and some names have no usable number.",
-  "Page and position are where the link was first seen. EEOC's listing order shifts, so use the URL as the identifier.",
-  "A couple of rows link to the bare site root, https://www.eeoc.gov."
+  "Posted date comes from the file's folder name, not the decision date.",
+  "Numbers in file names don't reliably identify a decision.",
+  "Use the URL as the identifier. EEOC's listing order shifts."
  ],
  "links": [
   {
@@ -55,7 +50,8 @@
    "key": "url",
    "label": "URL",
    "type": "text",
-   "show": false
+   "show": false,
+   "help": "A couple of rows link to the bare site root."
   },
   {
    "key": "posted_folder_date",
@@ -108,13 +104,43 @@
    "key": "page",
    "label": "Page first seen",
    "type": "number",
-   "show": false
+   "show": false,
+   "help": "Where the link was first seen. The order shifts, so it is not an identifier."
   },
   {
    "key": "position",
    "label": "Position first seen",
    "type": "number",
    "show": false
+  }
+ ],
+ "stats": [
+  {
+   "label": "Files",
+   "expr": "count(*)"
+  },
+  {
+   "label": "File types",
+   "expr": "count(DISTINCT ext)"
+  },
+  {
+   "label": "Posted",
+   "expr": "strftime(min(posted_folder_date), '%Y-%m') || ' to ' || strftime(max(posted_folder_date), '%Y-%m')"
+  }
+ ],
+ "charts": [
+  {
+   "type": "month",
+   "title": "By month",
+   "label": "strftime(posted_folder_date, '%Y-%m')",
+   "unit": "files"
+  },
+  {
+   "type": "top",
+   "title": "File types",
+   "label": "ext",
+   "unit": "files",
+   "limit": 10
   }
  ]
 }

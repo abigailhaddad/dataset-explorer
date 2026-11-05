@@ -2,23 +2,25 @@
  *
  * DuckDB-WASM reads the Parquet/CSV straight from its HTTPS URL (Hugging Face
  * "resolve" links), so the page never holds a copy and shows whatever is
- * published now. Every row you see comes from a SQL query against a view
+ * published now. Every number on the page comes from a SQL query against a view
  * called `t` that is built from the config's column list.
  *
  * State has one owner: `view` (search, filters, sort, page, open row). The URL
- * is written from it (writeURL) and read back into it (readURL). Controls are
- * drawn from it (syncControls). Nothing else keeps a copy.
+ * is written from it (writeURL) and read back into it (readURL). Controls,
+ * chips, stats and charts are drawn from it. Nothing else keeps a copy.
  *
  * URL: ?d=<dataset>&q=<search>&f.<col>=<value> (repeat for several values)
  *      &f.<col>.min= &f.<col>.max= &sort=<col>&dir=asc|desc&page=<n>&open=<key>
  *
- * Config shape is documented in README.md.
+ * Config shape is documented in README.md. Chart.js is a classic script in
+ * index.html and is used as the global `Chart`.
  */
 import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm';
 
 const BLANK = '__blank__';
 const EXPORT_LIMIT = 250000;
 const FACET_LIMIT = 500;
+const CHART_GROUP_LIMIT = 5000;
 
 const el = (id) => document.getElementById(id);
 const qi = (name) => '"' + name.replace(/"/g, '""') + '"';
@@ -27,8 +29,10 @@ const qi = (name) => '"' + name.replace(/"/g, '""') + '"';
 let config = null;
 let db = null;
 let conn = null;
-const facets = {}; // column key -> [{ value, label, n }]
+const facets = {}; // column key -> { truncated, items: [{ value, label, n }] }
 const colByKey = {};
+const charts = []; // { spec, chart, box, foot, tbody }
+let sourceUrls = []; // the data files actually read; set once in createView
 
 // The one owner of what the user is looking at.
 const view = { q: '', filters: {}, sort: { col: null, dir: 'asc' }, page: 1, open: null };
@@ -60,7 +64,7 @@ function busy(msg) {
   clearInterval(ticker);
   const t0 = performance.now();
   setStatus(msg, '', true);
-  ticker = setInterval(() => setStatus(msg + ' (' + Math.round((performance.now() - t0) / 1000) + ' s)', '', true), 1000);
+  ticker = setInterval(() => setStatus(msg + ' ' + Math.round((performance.now() - t0) / 1000) + ' s', '', true), 1000);
 }
 
 function fail(err) {
@@ -68,12 +72,7 @@ function fail(err) {
   console.error(err);
   const text = String(err && err.message ? err.message : err);
   const throttled = /429|too many requests/i.test(text);
-  setStatus(
-    (throttled
-      ? 'Hugging Face is limiting requests right now. Wait a minute, then reload. '
-      : 'Something went wrong: ') + text,
-    'error'
-  );
+  setStatus(throttled ? 'Hugging Face is limiting requests. Wait a minute, then reload.' : text, 'error');
 }
 
 function showNotices() {
@@ -94,7 +93,11 @@ function checkConfig(c) {
     if (!c[k]) bad('missing "' + k + '"');
   }
   if (!['parquet', 'csv'].includes(c.source.format)) bad('source.format must be parquet or csv');
-  if (!Array.isArray(c.source.urls) || !c.source.urls.length) bad('source.urls must be a list');
+  if (c.source.discover) {
+    if (!c.source.discover.hfDataset || !c.source.discover.path) bad('source.discover needs hfDataset and path');
+  } else if (!Array.isArray(c.source.urls) || !c.source.urls.length) {
+    bad('source.urls must be a list');
+  }
   if (!(c.pageSize >= 1 && c.pageSize <= 500)) bad('pageSize must be 1 to 500');
   for (const col of c.columns) {
     if (!['text', 'number', 'date', 'bool'].includes(col.type)) bad(col.key + ': type must be text, number, date or bool');
@@ -107,6 +110,14 @@ function checkConfig(c) {
     if (!colByKey[s] || colByKey[s].type !== 'text') bad('searchColumns: ' + s + ' must be a text column');
   }
   if (c.defaultSort && !colByKey[c.defaultSort.col]) bad('defaultSort column is not in columns');
+  for (const s of c.stats || []) {
+    if (!s.label || !s.expr) bad('each stat needs a label and an expr');
+  }
+  for (const ch of c.charts || []) {
+    if (!['month', 'year', 'top'].includes(ch.type)) bad('chart type must be month, year or top');
+    if (!ch.title || !ch.label) bad('each chart needs a title and a label expression');
+    if (ch.limit !== undefined && !(ch.limit >= 1 && ch.limit <= 50)) bad('chart limit must be 1 to 50');
+  }
   const templates = [];
   for (const col of c.columns) if (col.link) templates.push(col.link);
   for (const l of (c.detail && c.detail.links) || []) templates.push(l.href);
@@ -158,12 +169,35 @@ async function runQuery(sql, params) {
   }
 }
 
+// List the data files of a Hugging Face dataset folder now, so the page keeps
+// working when the files are renamed or merged. The tree API returns at most
+// 1000 entries a page and names the next page in the Link header.
+async function discoverUrls(d) {
+  const ext = '.' + config.source.format;
+  const found = [];
+  let next = 'https://huggingface.co/api/datasets/' + d.hfDataset + '/tree/main/' + d.path;
+  while (next) {
+    const r = await fetch(next);
+    if (!r.ok) throw new Error(next + ': HTTP ' + r.status);
+    for (const f of await r.json()) {
+      if (f.type === 'file' && f.path.endsWith(ext)) found.push(f.path);
+    }
+    const link = r.headers.get('Link');
+    const m = link && link.match(/<([^>]+)>;\s*rel="next"/);
+    next = m ? m[1] : null;
+  }
+  if (!found.length) throw new Error('No ' + ext + ' files under ' + d.path + ' in ' + d.hfDataset + '.');
+  found.sort();
+  return found.map((p) => 'https://huggingface.co/datasets/' + d.hfDataset + '/resolve/main/' + p);
+}
+
 async function createView() {
   const ext = config.source.format;
+  sourceUrls = config.source.discover ? await discoverUrls(config.source.discover) : config.source.urls;
   const names = [];
-  for (let i = 0; i < config.source.urls.length; i++) {
+  for (let i = 0; i < sourceUrls.length; i++) {
     const name = 'src' + i + '.' + ext;
-    await db.registerFileURL(name, config.source.urls[i], duckdb.DuckDBDataProtocol.HTTP, false);
+    await db.registerFileURL(name, sourceUrls[i], duckdb.DuckDBDataProtocol.HTTP, false);
     names.push("'" + name + "'");
   }
   const list = '[' + names.join(', ') + ']';
@@ -180,10 +214,10 @@ async function createView() {
     }
     found = new Set((await runQuery('DESCRIBE SELECT * FROM ' + rel, [])).map((r) => r.column_name));
   } catch (e) {
-    throw new Error('Could not read the data file at ' + config.source.urls[0] + ' (' + e.message + '). The file may have moved or been renamed, or Hugging Face may be limiting requests.');
+    throw new Error('Could not read ' + sourceUrls[0] + ' (' + e.message + '). The file may have moved, or Hugging Face is limiting requests.');
   }
   const missing = config.columns.filter((c) => !c.expr && !found.has(c.key)).map((c) => c.key);
-  if (missing.length) throw new Error('The file has no column(s) named: ' + missing.join(', ') + '. Check the config against the dataset.');
+  if (missing.length) throw new Error('The file has no column named ' + missing.join(', ') + '. Check the config.');
 
   const exprs = config.columns.map((c) => {
     if (c.expr) return '(' + c.expr + ') AS ' + qi(c.key);
@@ -249,19 +283,19 @@ function readURL() {
       for (const end of ['min', 'max']) {
         const v = p.get('f.' + c.key + '.' + end) || '';
         if (validBound(c, v)) view.filters[c.key][end] = v;
-        else notices.push('Ignored "' + v + '" in the link: not a valid ' + c.type + ' for ' + c.label + '.');
+        else notices.push('Ignored "' + v + '" for ' + c.label + ': not a valid ' + c.type + '.');
       }
     }
   }
   for (const name of p.keys()) {
     if (!name.startsWith('f.')) continue;
     const key = name.slice(2).replace(/\.(min|max)$/, '');
-    if (!colByKey[key] || !colByKey[key].filter) notices.push('Ignored unknown filter "' + name + '" in the link.');
+    if (!colByKey[key] || !colByKey[key].filter) notices.push('Ignored unknown filter "' + name + '".');
   }
   const ds = config.defaultSort || {};
   let col = p.get('sort') || ds.col || null;
   if (col && !colByKey[col]) {
-    notices.push('Ignored unknown sort column "' + col + '" in the link.');
+    notices.push('Ignored unknown sort column "' + col + '".');
     col = ds.col || null;
   }
   const dir = p.get('dir') || ds.dir || 'asc';
@@ -344,7 +378,7 @@ function orderBy() {
   return ' ORDER BY ' + qi(view.sort.col) + (view.sort.dir === 'desc' ? ' DESC' : ' ASC') + ' NULLS LAST, ' + key;
 }
 
-/* ---------- drawing ---------- */
+/* ---------- table ---------- */
 
 function formatValue(c, v) {
   if (v === null || v === undefined || v === '') return '';
@@ -380,88 +414,7 @@ function shownColumns() {
   return config.columns.filter((c) => c.show !== false);
 }
 
-function buildControls() {
-  el('q').placeholder = 'Search ' + config.searchColumns.map((k) => colByKey[k].label.toLowerCase()).join(', ');
-
-  const bar = el('filters');
-  bar.replaceChildren();
-  for (const c of config.columns.filter((x) => x.filter)) {
-    if (c.filter === 'select') {
-      const d = document.createElement('details');
-      d.className = 'filter';
-      d.dataset.key = c.key;
-      const s = document.createElement('summary');
-      s.append(c.label + ' ');
-      const n = document.createElement('span');
-      n.className = 'n';
-      s.append(n);
-      const panel = document.createElement('div');
-      panel.className = 'panel';
-      const narrow = document.createElement('input');
-      narrow.type = 'search';
-      narrow.className = 'narrow';
-      narrow.placeholder = 'Narrow this list';
-      narrow.setAttribute('aria-label', 'Narrow the ' + c.label + ' list');
-      const opts = document.createElement('div');
-      opts.className = 'opts';
-      for (const item of facets[c.key].items) {
-        const lab = document.createElement('label');
-        const box = document.createElement('input');
-        box.type = 'checkbox';
-        box.value = item.value;
-        box.dataset.key = c.key;
-        const name = document.createElement('span');
-        name.textContent = item.label;
-        const cnt = document.createElement('span');
-        cnt.className = 'c';
-        cnt.textContent = item.n.toLocaleString();
-        lab.append(box, name, cnt);
-        opts.append(lab);
-      }
-      panel.append(narrow, opts);
-      const note0 = document.createElement('p');
-      note0.className = 'summary';
-      note0.textContent = 'Counts are for the whole table, not the current filters.';
-      panel.append(note0);
-      if (facets[c.key].truncated) {
-        const note = document.createElement('p');
-        note.className = 'summary';
-        note.textContent = 'Showing the ' + FACET_LIMIT + ' most common values.';
-        panel.append(note);
-      }
-      d.append(s, panel);
-      bar.append(d);
-    }
-    if (c.filter === 'text') {
-      const lab = document.createElement('label');
-      lab.className = 'filter';
-      lab.append(c.label + ' contains');
-      const input = document.createElement('input');
-      input.type = 'search';
-      input.dataset.key = c.key;
-      lab.append(input);
-      bar.append(lab);
-    }
-    if (c.filter === 'range') {
-      const fs = document.createElement('fieldset');
-      fs.className = 'filter';
-      fs.dataset.key = c.key;
-      const lg = document.createElement('legend');
-      lg.textContent = c.label;
-      fs.append(lg);
-      for (const end of ['min', 'max']) {
-        const input = document.createElement('input');
-        input.type = c.type === 'date' ? 'date' : 'number';
-        input.dataset.key = c.key;
-        input.dataset.end = end;
-        input.setAttribute('aria-label', c.label + ' ' + (end === 'min' ? 'from' : 'to'));
-        fs.append(input);
-        if (end === 'min') fs.append('to');
-      }
-      bar.append(fs);
-    }
-  }
-
+function buildTableHead() {
   const head = el('grid').tHead;
   head.replaceChildren();
   const tr = document.createElement('tr');
@@ -470,30 +423,10 @@ function buildControls() {
     th.textContent = c.label;
     th.dataset.key = c.key;
     th.tabIndex = 0;
+    if (c.help) th.title = c.help;
     tr.append(th);
   }
   head.append(tr);
-}
-
-function syncControls() {
-  el('q').value = view.q;
-  for (const c of config.columns.filter((x) => x.filter)) {
-    const f = view.filters[c.key];
-    if (c.filter === 'select') {
-      const d = el('filters').querySelector('details[data-key="' + c.key + '"]');
-      for (const box of d.querySelectorAll('input[type="checkbox"]')) box.checked = f.includes(box.value);
-      d.querySelector('.n').textContent = f.length ? '(' + f.length + ')' : '';
-    }
-    if (c.filter === 'text') el('filters').querySelector('label input[data-key="' + c.key + '"]').value = f;
-    if (c.filter === 'range') {
-      el('filters').querySelector('input[data-key="' + c.key + '"][data-end="min"]').value = f.min;
-      el('filters').querySelector('input[data-key="' + c.key + '"][data-end="max"]').value = f.max;
-    }
-  }
-  for (const th of el('grid').tHead.querySelectorAll('th')) {
-    th.removeAttribute('aria-sort');
-    if (th.dataset.key === view.sort.col) th.setAttribute('aria-sort', view.sort.dir === 'desc' ? 'descending' : 'ascending');
-  }
 }
 
 function renderGrid(rows) {
@@ -520,12 +453,428 @@ function renderSummary() {
   const from = total ? (view.page - 1) * size + 1 : 0;
   const to = Math.min(total, view.page * size);
   el('summary').textContent = total
-    ? 'Showing ' + from.toLocaleString() + ' to ' + to.toLocaleString() + ' of ' + total.toLocaleString() + ' rows.'
+    ? from.toLocaleString() + ' to ' + to.toLocaleString() + ' of ' + total.toLocaleString() + ' rows'
     : 'No rows match.';
   el('pageinfo').textContent = 'Page ' + view.page.toLocaleString() + ' of ' + pages.toLocaleString();
   el('first').disabled = el('prev').disabled = view.page <= 1;
   el('next').disabled = el('last').disabled = view.page >= pages;
 }
+
+/* ---------- toolbar and filter chips ---------- */
+
+function filterColumns() {
+  return config.columns.filter((c) => c.filter);
+}
+
+function isActive(c) {
+  const f = view.filters[c.key];
+  if (c.filter === 'select') return f.length > 0;
+  if (c.filter === 'text') return f !== '';
+  return f.min !== '' || f.max !== '';
+}
+
+function facetLabel(c, value) {
+  const item = facets[c.key] && facets[c.key].items.find((i) => i.value === value);
+  return item ? item.label : value;
+}
+
+function chipValue(c) {
+  const f = view.filters[c.key];
+  if (c.filter === 'select') {
+    const labels = f.map((v) => facetLabel(c, v));
+    return labels.length > 2 ? labels.slice(0, 2).join(', ') + ' +' + (labels.length - 2) : labels.join(', ');
+  }
+  if (c.filter === 'text') return 'contains "' + f + '"';
+  if (f.min !== '' && f.max !== '') return f.min + ' to ' + f.max;
+  return f.min !== '' ? 'from ' + f.min : 'to ' + f.max;
+}
+
+function renderChips() {
+  const bar = el('chips');
+  bar.replaceChildren();
+  const active = filterColumns().filter(isActive);
+  if (!active.length) {
+    const none = document.createElement('span');
+    none.className = 'filters-bar-empty';
+    none.textContent = 'No filters applied';
+    bar.append(none);
+    return;
+  }
+  for (const c of active) {
+    const chip = document.createElement('span');
+    chip.className = 'filter-chip';
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'filter-chip-edit';
+    edit.dataset.act = 'edit';
+    edit.dataset.key = c.key;
+    const label = document.createElement('span');
+    label.className = 'filter-chip-label';
+    label.textContent = c.label;
+    const value = document.createElement('span');
+    value.className = 'filter-chip-value';
+    value.textContent = chipValue(c);
+    value.title = chipValue(c);
+    edit.append(label, value);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'filter-chip-remove';
+    remove.dataset.act = 'remove';
+    remove.dataset.key = c.key;
+    remove.setAttribute('aria-label', 'Remove ' + c.label + ' filter');
+    remove.textContent = '×';
+    chip.append(edit, remove);
+    bar.append(chip);
+  }
+  const clear = document.createElement('button');
+  clear.type = 'button';
+  clear.dataset.act = 'clear';
+  clear.textContent = 'Clear all';
+  bar.append(clear);
+}
+
+function syncControls() {
+  el('q').value = view.q;
+  renderChips();
+  for (const th of el('grid').tHead.querySelectorAll('th')) {
+    th.removeAttribute('aria-sort');
+    if (th.dataset.key === view.sort.col) th.setAttribute('aria-sort', view.sort.dir === 'desc' ? 'descending' : 'ascending');
+  }
+}
+
+function buildToolbar() {
+  const names = config.searchColumns.map((k) => colByKey[k].label.toLowerCase());
+  el('q').placeholder = 'Search ' + names.slice(0, 2).join(', ') + (names.length > 2 ? '…' : '');
+  el('q').title = 'Searches: ' + names.join(', ');
+  el('addfilter').hidden = filterColumns().length === 0;
+  const link = el('fulllink');
+  if (sourceUrls.length === 1) {
+    link.href = sourceUrls[0];
+    link.textContent = 'Full dataset (' + config.source.format + ') ↓';
+  } else if (config.hfDataset) {
+    link.href = 'https://huggingface.co/datasets/' + config.hfDataset + '/tree/main';
+    link.textContent = 'Full dataset (Hugging Face) ↗';
+  }
+  link.hidden = !link.href;
+}
+
+/* ---------- filter dialog ---------- */
+
+function buildFilterColumnList() {
+  const sel = el('fdcol');
+  sel.replaceChildren();
+  for (const c of filterColumns()) {
+    const o = document.createElement('option');
+    o.value = c.key;
+    o.textContent = c.label;
+    sel.append(o);
+  }
+}
+
+function drawEditor() {
+  const c = colByKey[el('fdcol').value];
+  const f = view.filters[c.key];
+  const body = el('fdbody');
+  body.replaceChildren();
+  el('fderr').hidden = true;
+  el('fdremove').hidden = !isActive(c);
+  if (c.filter === 'select') {
+    const narrow = document.createElement('input');
+    narrow.type = 'search';
+    narrow.id = 'fdnarrow';
+    narrow.placeholder = 'Narrow the list';
+    narrow.setAttribute('aria-label', 'Narrow the ' + c.label + ' list');
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    for (const item of facets[c.key].items) {
+      const lab = document.createElement('label');
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.value = item.value;
+      box.checked = f.includes(item.value);
+      const name = document.createElement('span');
+      name.textContent = item.label;
+      const cnt = document.createElement('span');
+      cnt.className = 'c';
+      cnt.textContent = item.n.toLocaleString();
+      lab.append(box, name, cnt);
+      opts.append(lab);
+    }
+    const note = document.createElement('p');
+    note.className = 'summary';
+    note.textContent = 'Counts cover the whole table.' + (facets[c.key].truncated ? ' Top ' + FACET_LIMIT + ' values shown.' : '');
+    body.append(narrow, opts, note);
+  } else if (c.filter === 'text') {
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.id = 'fdtext';
+    input.placeholder = 'Contains';
+    input.setAttribute('aria-label', c.label + ' contains');
+    input.value = f;
+    body.append(input);
+  } else {
+    const row = document.createElement('div');
+    row.className = 'rangerow';
+    const type = c.type === 'date' ? 'date' : 'number';
+    const lo = document.createElement('input');
+    lo.type = type;
+    lo.id = 'fdmin';
+    lo.value = f.min;
+    lo.setAttribute('aria-label', c.label + ' from');
+    const hi = document.createElement('input');
+    hi.type = type;
+    hi.id = 'fdmax';
+    hi.value = f.max;
+    hi.setAttribute('aria-label', c.label + ' to');
+    row.append(lo, 'to', hi);
+    body.append(row);
+  }
+}
+
+function openFilter(key) {
+  el('fdcol').value = key || filterColumns()[0].key;
+  drawEditor();
+  el('filterdlg').showModal();
+}
+
+function applyFilter() {
+  const c = colByKey[el('fdcol').value];
+  if (c.filter === 'select') {
+    view.filters[c.key] = [...el('fdbody').querySelectorAll('.opts input:checked')].map((b) => b.value);
+  } else if (c.filter === 'text') {
+    view.filters[c.key] = el('fdtext').value.trim();
+  } else {
+    const range = { min: el('fdmin').value, max: el('fdmax').value };
+    for (const end of ['min', 'max']) {
+      if (!validBound(c, range[end])) {
+        el('fderr').textContent = 'Not a valid ' + c.type + ': ' + range[end];
+        el('fderr').hidden = false;
+        return;
+      }
+    }
+    view.filters[c.key] = range;
+  }
+  view.page = 1;
+  el('filterdlg').close();
+  update(true);
+}
+
+function removeFilter(key) {
+  const c = colByKey[key];
+  view.filters[key] = emptyFilters()[key];
+  view.page = 1;
+  update(true);
+  return c;
+}
+
+/* ---------- stats and charts ---------- */
+
+function buildStats() {
+  const row = el('stats');
+  row.replaceChildren();
+  (config.stats || []).forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    if (s.hint) card.title = s.hint;
+    const h = document.createElement('h3');
+    h.textContent = s.label;
+    const v = document.createElement('div');
+    v.className = 'stat-value';
+    v.id = 'stat' + i;
+    v.textContent = '--';
+    card.append(h, v);
+    row.append(card);
+  });
+}
+
+function statText(v) {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'bigint' || typeof v === 'number') return Number(v).toLocaleString();
+  return String(v);
+}
+
+async function refreshStats(id, whereSql, params) {
+  const specs = config.stats || [];
+  if (!specs.length) return;
+  const sql = 'SELECT ' + specs.map((s, i) => '(' + s.expr + ') AS s' + i).join(', ') + ' FROM t' + whereSql;
+  const rows = await runQuery(sql, params);
+  if (id !== latest) return;
+  specs.forEach((s, i) => {
+    const node = el('stat' + i);
+    const text = statText(rows[0]['s' + i]);
+    node.textContent = text;
+    node.classList.toggle('text', text.length > 12);
+  });
+}
+
+function chartColors() {
+  const css = getComputedStyle(document.documentElement);
+  const get = (name) => css.getPropertyValue(name).trim();
+  return { bar: get('--chart-bar'), hover: get('--chart-bar-hover'), grid: get('--chart-grid'), tick: get('--chart-tick') };
+}
+
+function themeChart(o) {
+  const c = chartColors();
+  const ds = o.chart.data.datasets[0];
+  ds.backgroundColor = c.bar;
+  ds.hoverBackgroundColor = c.hover;
+  const { x, y } = o.chart.options.scales;
+  x.ticks.color = y.ticks.color = c.tick;
+  (o.spec.type === 'top' ? x : y).grid.color = c.grid;
+  o.chart.update('none');
+}
+
+function applyChartThemes() {
+  for (const o of charts) themeChart(o);
+}
+
+function buildCharts() {
+  const host = el('charts');
+  host.replaceChildren();
+  charts.length = 0;
+  const specs = config.charts || [];
+  if (!specs.length) return;
+  if (typeof Chart === 'undefined') throw new Error('Chart.js did not load.');
+  for (const spec of specs) {
+    const horizontal = spec.type === 'top';
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    const h = document.createElement('h3');
+    h.textContent = spec.title;
+    const box = document.createElement('div');
+    box.className = 'chart-box';
+    const canvas = document.createElement('canvas');
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', spec.title + ' (the table below the chart has the numbers)');
+    box.append(canvas);
+    const foot = document.createElement('p');
+    foot.className = 'chart-foot';
+    const details = document.createElement('details');
+    const sum = document.createElement('summary');
+    sum.textContent = 'Table';
+    const scroll = document.createElement('div');
+    scroll.className = 'tablescroll';
+    const table = document.createElement('table');
+    const tbody = document.createElement('tbody');
+    table.append(tbody);
+    scroll.append(table);
+    details.append(sum, scroll);
+    card.append(h, box, foot, details);
+    host.append(card);
+
+    const unit = spec.unit || 'rows';
+    const valueAxis = { beginAtZero: true, ticks: { precision: 0, callback: (v) => Number(v).toLocaleString() }, grid: {} };
+    const labelAxis = { ticks: { autoSkip: true, maxTicksLimit: horizontal ? 50 : 24, maxRotation: 45 }, grid: { display: false } };
+    if (horizontal) {
+      labelAxis.ticks.callback = function (value) {
+        const s = this.getLabelForValue(value);
+        const max = Math.max(12, Math.min(34, Math.floor(this.chart.width / 17)));
+        return s.length > max ? s.slice(0, max - 1) + '…' : s;
+      };
+    }
+    const chart = new Chart(canvas, {
+      type: 'bar',
+      data: { labels: [], datasets: [{ label: unit, data: [], borderWidth: 0, borderRadius: 3, maxBarThickness: horizontal ? 18 : 28 }] },
+      options: {
+        indexAxis: horizontal ? 'y' : 'x',
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 150 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#2A211A',
+            titleColor: '#F5EDE0',
+            bodyColor: '#F5EDE0',
+            borderColor: '#3D2B1F',
+            borderWidth: 1,
+            callbacks: {
+              label: (ctx) => ' ' + Number(horizontal ? ctx.parsed.x : ctx.parsed.y).toLocaleString() + ' ' + unit,
+            },
+          },
+        },
+        scales: horizontal ? { x: valueAxis, y: labelAxis } : { x: labelAxis, y: valueAxis },
+      },
+    });
+    const o = { spec, chart, box, foot, tbody };
+    charts.push(o);
+    themeChart(o);
+  }
+}
+
+function chartSql(spec, whereSql) {
+  const label = 'CAST((' + spec.label + ') AS VARCHAR)';
+  const value = 'CAST((' + (spec.value || 'count(*)') + ') AS DOUBLE)';
+  const order = spec.type === 'top' ? 'v DESC, l' : 'l';
+  return 'SELECT ' + label + ' AS l, ' + value + ' AS v FROM t' + whereSql + ' GROUP BY 1 ORDER BY ' + order + ' LIMIT ' + CHART_GROUP_LIMIT;
+}
+
+// Fill in periods with no rows so a gap in the data shows as a gap in the chart.
+function fillPeriods(spec, rows) {
+  const year = spec.type === 'year';
+  const pattern = year ? /^\d{4}$/ : /^\d{4}-\d{2}$/;
+  for (const r of rows) {
+    if (!pattern.test(r.l)) throw new Error('Chart "' + spec.title + '": label "' + r.l + '" is not ' + (year ? 'YYYY' : 'YYYY-MM') + '.');
+  }
+  if (!rows.length) return { labels: [], values: [] };
+  const byLabel = new Map(rows.map((r) => [r.l, Number(r.v)]));
+  const last = rows[rows.length - 1].l;
+  let [y, m] = rows[0].l.split('-').map(Number);
+  const labels = [];
+  for (;;) {
+    const label = year ? String(y) : y + '-' + String(m).padStart(2, '0');
+    labels.push(label);
+    if (label === last) break;
+    if (year || m === 12) { y += 1; m = 1; } else { m += 1; }
+  }
+  return { labels, values: labels.map((l) => byLabel.get(l) || 0) };
+}
+
+function drawChart(o, rows) {
+  const spec = o.spec;
+  const blanks = rows.filter((r) => r.l === null).reduce((n, r) => n + Number(r.v), 0);
+  const kept = rows.filter((r) => r.l !== null);
+  let labels = [];
+  let values = [];
+  let foot = '';
+  if (spec.type === 'top') {
+    const limit = spec.limit || 10;
+    labels = kept.slice(0, limit).map((r) => r.l);
+    values = kept.slice(0, limit).map((r) => Number(r.v));
+    if (kept.length > limit) foot = 'Top ' + limit + ' of ' + kept.length.toLocaleString() + '. ';
+  } else {
+    ({ labels, values } = fillPeriods(spec, kept));
+  }
+  if (blanks) foot += blanks.toLocaleString() + ' blank, not shown.';
+  if (!labels.length) foot = 'No rows match.';
+  o.foot.textContent = foot.trim();
+  o.box.style.height = spec.type === 'top' ? Math.max(90, labels.length * 26 + 40) + 'px' : '200px';
+  o.chart.data.labels = labels;
+  o.chart.data.datasets[0].data = values;
+  o.chart.update('none');
+  o.chart.resize();
+  o.tbody.replaceChildren();
+  labels.forEach((l, i) => {
+    const tr = document.createElement('tr');
+    const a = document.createElement('td');
+    a.textContent = l;
+    const b = document.createElement('td');
+    b.className = 'num';
+    b.textContent = values[i].toLocaleString();
+    tr.append(a, b);
+    o.tbody.append(tr);
+  });
+}
+
+async function refreshCharts(id, whereSql, params) {
+  for (const o of charts) {
+    const rows = await runQuery(chartSql(o.spec, whereSql), params);
+    if (id !== latest) return;
+    drawChart(o, rows);
+  }
+}
+
+/* ---------- refresh ---------- */
 
 async function refresh() {
   const id = ++latest;
@@ -543,6 +892,8 @@ async function refresh() {
   renderGrid(rows);
   renderSummary();
   showNotices();
+  await refreshStats(id, sql, params);
+  await refreshCharts(id, sql, params);
 }
 
 function update(push) {
@@ -556,7 +907,7 @@ function update(push) {
 async function showDetail(keyValue) {
   const rows = await runQuery('SELECT ' + selectList() + ' FROM t WHERE ' + qi(config.key) + ' = ?', [keyValue]);
   if (!rows.length) {
-    notices.push('No row has the key "' + keyValue + '" (from the link).');
+    notices.push('No row has the key "' + keyValue + '".');
     view.open = null;
     writeURL(false);
     showNotices();
@@ -585,6 +936,7 @@ async function showDetail(keyValue) {
   for (const c of config.columns) {
     const dt = document.createElement('dt');
     dt.textContent = c.label;
+    if (c.help) dt.title = c.help;
     const dd = document.createElement('dd');
     dd.textContent = formatValue(c, row[c.key]) || '—';
     body.append(dt, dd);
@@ -604,7 +956,7 @@ async function exportCsv() {
   const count = await runQuery('SELECT count(*) AS n FROM t' + sql, params);
   const n = Number(count[0].n);
   if (n > EXPORT_LIMIT) {
-    setStatus('That is ' + n.toLocaleString() + ' rows, more than the ' + EXPORT_LIMIT.toLocaleString() + ' the page will export. Filter it down first.', 'warn');
+    setStatus(n.toLocaleString() + ' rows is over the ' + EXPORT_LIMIT.toLocaleString() + ' export limit. Filter first.', 'warn');
     return;
   }
   const rows = await runQuery('SELECT ' + selectList() + ' FROM t' + sql + orderBy(), params);
@@ -616,27 +968,20 @@ async function exportCsv() {
   a.download = config.id + '-filtered.csv';
   a.click();
   URL.revokeObjectURL(url);
-  setStatus('Downloaded ' + n.toLocaleString() + ' rows. Open the file as text in a spreadsheet so ID columns keep their leading zeros.', '');
+  setStatus('Downloaded ' + n.toLocaleString() + ' rows. Open as text to keep leading zeros.', '');
 }
 
 /* ---------- as-of line ---------- */
 
 async function showAsOf() {
-  const parts = [];
-  if (config.asOf) {
-    const rows = await runQuery(config.asOf.sql, []);
-    parts.push(config.asOf.label.replace('{value}', String(Object.values(rows[0])[0])));
+  if (!config.hfDataset) return;
+  try {
+    const info = await fetchJSON('https://huggingface.co/api/datasets/' + config.hfDataset);
+    el('asof').textContent = 'Updated ' + info.lastModified.slice(0, 10);
+  } catch (e) {
+    console.error(e);
+    el('asof').textContent = 'Update date unavailable';
   }
-  if (config.hfDataset) {
-    try {
-      const info = await fetchJSON('https://huggingface.co/api/datasets/' + config.hfDataset);
-      parts.push('Hugging Face dataset last changed ' + info.lastModified.slice(0, 10) + '.');
-    } catch (e) {
-      console.error(e);
-      parts.push('Could not read the Hugging Face dataset date.');
-    }
-  }
-  el('asof').textContent = parts.join(' ');
 }
 
 /* ---------- events (bound once) ---------- */
@@ -649,32 +994,30 @@ function wire() {
     typingTimer = setTimeout(() => update(false), 250);
   });
 
-  el('filters').addEventListener('input', (e) => {
-    const t = e.target;
-    if (t.classList.contains('narrow')) {
-      const needle = t.value.toLowerCase();
-      for (const lab of t.closest('.panel').querySelectorAll('.opts label')) {
-        lab.hidden = !lab.textContent.toLowerCase().includes(needle);
-      }
-      return;
+  el('addfilter').addEventListener('click', () => openFilter(null));
+  el('chips').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-act]');
+    if (!b) return;
+    if (b.dataset.act === 'edit') openFilter(b.dataset.key);
+    if (b.dataset.act === 'remove') removeFilter(b.dataset.key);
+    if (b.dataset.act === 'clear') {
+      view.q = '';
+      view.filters = emptyFilters();
+      view.page = 1;
+      update(true);
     }
-    const c = colByKey[t.dataset.key];
-    if (c.filter === 'select') {
-      view.filters[c.key] = [...t.closest('details').querySelectorAll('input[type="checkbox"]:checked')].map((b) => b.value);
-    } else if (c.filter === 'text') {
-      view.filters[c.key] = t.value.trim();
-    } else {
-      view.filters[c.key][t.dataset.end] = t.value;
-    }
-    view.page = 1;
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => update(false), 250);
   });
-
-  document.addEventListener('click', (e) => {
-    for (const d of document.querySelectorAll('details.filter[open]')) {
-      if (!d.contains(e.target)) d.open = false;
-    }
+  el('fdcol').addEventListener('change', drawEditor);
+  el('fdbody').addEventListener('input', (e) => {
+    if (e.target.id !== 'fdnarrow') return;
+    const needle = e.target.value.toLowerCase();
+    for (const lab of el('fdbody').querySelectorAll('.opts label')) lab.hidden = !lab.textContent.toLowerCase().includes(needle);
+  });
+  el('fdapply').addEventListener('click', applyFilter);
+  el('fdcancel').addEventListener('click', () => el('filterdlg').close());
+  el('fdremove').addEventListener('click', () => {
+    el('filterdlg').close();
+    removeFilter(el('fdcol').value);
   });
 
   el('grid').tHead.addEventListener('click', (e) => {
@@ -699,18 +1042,12 @@ function wire() {
   el('next').addEventListener('click', () => { view.page += 1; update(true); });
   el('last').addEventListener('click', () => { view.page = Math.ceil(total / config.pageSize); update(true); });
 
-  el('clear').addEventListener('click', () => {
-    view.q = '';
-    view.filters = emptyFilters();
-    view.page = 1;
-    update(true);
-  });
   el('copy').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(location.href);
       setStatus('Link copied.', '');
     } catch (e) {
-      setStatus('Could not copy automatically. The address bar has the link.', 'warn');
+      setStatus('Could not copy. The address bar has the link.', 'warn');
     }
   });
   el('csv').addEventListener('click', () => exportCsv().catch(fail));
@@ -740,24 +1077,45 @@ function wire() {
     } catch (e) {
       console.warn('Could not remember the theme choice', e);
     }
+    applyChartThemes();
   });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyChartThemes);
 }
 
 /* ---------- start ---------- */
 
+function findEntry(index, id) {
+  const want = String(id || '').trim().toLowerCase();
+  return index.find((d) => d.id === want || (d.aliases || []).includes(want));
+}
+
 function renderNav(index, current) {
   const nav = el('nav');
-  for (const d of index) {
+  nav.replaceChildren('Datasets: ');
+  index.forEach((d, i) => {
+    if (i) {
+      const sep = document.createElement('span');
+      sep.className = 'sep';
+      sep.textContent = '·';
+      nav.append(sep);
+    }
+    if (d.id === current) {
+      const here = document.createElement('span');
+      here.setAttribute('aria-current', 'page');
+      here.textContent = d.title;
+      nav.append(here);
+      return;
+    }
     const a = document.createElement('a');
     a.href = '?d=' + d.id;
     a.textContent = d.title;
-    if (d.id === current) a.setAttribute('aria-current', 'page');
     nav.append(a);
-  }
+  });
 }
 
 function renderHome(index) {
   const list = el('home-list');
+  list.replaceChildren();
   for (const d of index) {
     const li = document.createElement('li');
     const a = document.createElement('a');
@@ -789,7 +1147,6 @@ function renderHeader() {
     a.textContent = l.label;
     el('links').append(a);
   }
-  if (matchMedia('(max-width: 640px)').matches) el('about').open = false;
   el('explorer').hidden = false;
 }
 
@@ -802,34 +1159,44 @@ async function start() {
   }
   wire();
 
-  const id = new URLSearchParams(location.search).get('d');
+  const asked = new URLSearchParams(location.search).get('d');
   const index = await fetchJSON('configs/index.json');
-  renderNav(index, id);
-  if (!id) {
+  const entry = asked ? findEntry(index, asked) : null;
+  renderNav(index, entry ? entry.id : null);
+  if (!entry) {
     renderHome(index);
+    if (asked) setStatus('No dataset called "' + asked + '". Pick one below.', 'error');
     return;
   }
-  if (!index.some((d) => d.id === id)) throw new Error('No dataset called "' + id + '".');
-  config = await fetchJSON('configs/' + id + '.json');
+  if (entry.id !== asked) {
+    const p = new URLSearchParams(location.search);
+    p.set('d', entry.id);
+    history.replaceState(null, '', location.pathname + '?' + p);
+  }
+  config = await fetchJSON('configs/' + entry.id + '.json');
   checkConfig(config);
   renderHeader();
 
   const t0 = performance.now();
   busy('Starting the database engine…');
   await startDuckDB();
-  busy('Opening the table from Hugging Face…');
+  busy('Opening the table…');
   await createView();
   busy('Reading filter values…');
   await loadFacets();
   readURL();
-  buildControls();
+  buildToolbar();
+  buildFilterColumnList();
+  buildTableHead();
+  buildStats();
+  buildCharts();
   syncControls();
   el('controls').hidden = false;
   clearInterval(ticker);
+  setStatus('');
   await refresh();
   console.info('opened ' + config.id + ' in ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s');
   await showAsOf();
-  el('asof').textContent += ' Opened in ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s.';
   if (view.open) await showDetail(view.open);
 }
 

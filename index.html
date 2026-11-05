@@ -4,44 +4,52 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dataset Explorer</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%230f6b66%27/%3E%3Cpath d=%27M3 5h10M3 8h10M3 11h6%27 stroke=%27white%27 stroke-width=%271.5%27/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%232d6a4f%27/%3E%3Cpath d=%27M3 5h10M3 8h10M3 11h6%27 stroke=%27white%27 stroke-width=%271.5%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="top">
-  <a class="brand" href="./">Dataset Explorer</a>
-  <nav id="nav" aria-label="Datasets"></nav>
-  <button id="theme" type="button" aria-label="Switch light or dark mode">Light/dark</button>
-</header>
+<div class="site-container">
 
-<main>
+  <header class="site-header">
+    <div class="header-row">
+      <h1 id="title">Dataset Explorer</h1>
+      <button id="theme" type="button" aria-label="Switch light or dark mode">Light/dark</button>
+    </div>
+    <p id="blurb" class="site-subtitle">Public records, read from Hugging Face.</p>
+    <nav id="nav" class="site-nav" aria-label="Datasets"></nav>
+  </header>
+
+  <div id="status" role="status" aria-live="polite"></div>
+
   <section id="home" hidden>
-    <h1>Datasets</h1>
-    <p class="lede">Each one is read straight from its Hugging Face file in your browser. Nothing is copied to this site.</p>
     <ul id="home-list" class="cards"></ul>
   </section>
 
   <section id="explorer" hidden>
-    <h1 id="title"></h1>
-    <p id="blurb" class="lede"></p>
     <p id="asof" class="asof"></p>
-    <p id="covers" class="covers"></p>
-    <details id="about" open>
-      <summary>Caveats and sources</summary>
+    <details id="about">
+      <summary>About this data</summary>
+      <p id="covers"></p>
       <ul id="caveats"></ul>
       <p id="links" class="links"></p>
     </details>
 
-    <div id="status" role="status" aria-live="polite"></div>
-
     <div id="controls" hidden>
-      <div class="searchrow">
+      <div class="toolbar-row">
         <input id="q" type="search" autocomplete="off" aria-label="Search">
-        <button id="clear" type="button">Clear filters</button>
-        <button id="copy" type="button">Copy link</button>
+        <button id="addfilter" type="button" class="primary">+ Add Filter</button>
+        <button id="copy" type="button">Copy Link</button>
         <button id="csv" type="button">Download CSV</button>
+        <a id="fulllink" class="full-dataset-link" target="_blank" rel="noopener" hidden></a>
       </div>
-      <div id="filters" class="filters"></div>
+      <div id="chips" class="filters-bar"></div>
+
+      <div id="stats" class="stats-row"></div>
+      <div id="charts" class="charts-grid"></div>
+
       <p id="summary" class="summary"></p>
       <div class="tablewrap">
         <table id="grid"><thead></thead><tbody></tbody></table>
@@ -55,7 +63,11 @@
       </div>
     </div>
   </section>
-</main>
+
+  <footer class="site-footer">
+    <p>Tables load from Hugging Face in your browser.</p>
+  </footer>
+</div>
 
 <dialog id="detail">
   <div class="dhead"><h2 id="dtitle"></h2><button id="dclose" type="button" aria-label="Close">Close</button></div>
@@ -63,6 +75,20 @@
   <dl id="dbody"></dl>
 </dialog>
 
+<dialog id="filterdlg">
+  <div class="dhead"><h2 id="fdtitle">Filter</h2></div>
+  <label class="field" for="fdcol">Column</label>
+  <select id="fdcol"></select>
+  <div id="fdbody"></div>
+  <p id="fderr" hidden></p>
+  <div class="dactions">
+    <button id="fdremove" type="button">Remove</button>
+    <button id="fdcancel" type="button">Cancel</button>
+    <button id="fdapply" type="button" class="primary">Apply</button>
+  </div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

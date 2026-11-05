@@ -1,7 +1,7 @@
 {
  "id": "eeoc",
- "title": "EEOC appellate decisions",
- "blurb": "Fields read from each federal-sector appeal decision EEOC has posted since 2025.",
+ "title": "EEOC decisions",
+ "blurb": "Model-read fields from EEOC appeal decisions, since 2025.",
  "hfDataset": "abigailhaddad/eeoc-appellate-decisions",
  "source": {
   "format": "parquet",
@@ -10,17 +10,11 @@
   ]
  },
  "key": "sha256",
- "asOf": {
-  "sql": "SELECT max(posted_month) FROM t",
-  "label": "Latest EEOC posting month in this table: {value}."
- },
- "covers": "One row per unique file EEOC posted from 2025 onward. A model read each decision and filled in the case fields below. Older decisions and files that are not decisions are in the separate listing table.",
+ "covers": "One row per file EEOC posted from 2025. Older files are in the file listing.",
  "caveats": [
-  "These fields are model outputs. Check anything you rely on against the decision itself (the source link). The answer key used to test them was made by Claude agents, not lawyers, and only columns that passed testing are included.",
-  "Posting month is when EEOC posted the file, not when the decision was issued. EEOC posted almost nothing between December 2024 and January 2026, then posted decisions issued during that gap.",
-  "\"Discrimination found\" means a finding of discrimination exists in the case; it may predate this decision, and No includes \"not reached\".",
-  "Some decision dates are blank because none could be read. The race and sex columns are as stated in the decision, not verified.",
-  "Many case numbers appear in more than one file. Use the case number printed in the document, and the file hash to spot exact copies."
+  "Model-read fields. Check the source before relying on any.",
+  "Posted month is when EEOC posted the file, not the decision date. Almost nothing was posted from December 2024 to January 2026.",
+  "\"Discrimination found\" can predate this decision. No includes \"not reached\"."
  ],
  "links": [
   {
@@ -62,13 +56,15 @@
    "key": "sha256",
    "label": "File hash (SHA-256)",
    "type": "text",
-   "show": false
+   "show": false,
+   "help": "Same hash means an exact copy of the file."
   },
   {
    "key": "decision_date",
    "label": "Decision date",
    "type": "date",
-   "filter": "range"
+   "filter": "range",
+   "help": "Blank when none could be read."
   },
   {
    "key": "agency",
@@ -91,7 +87,8 @@
    "key": "discrimination_found",
    "label": "Discrimination found",
    "type": "bool",
-   "filter": "select"
+   "filter": "select",
+   "help": "A finding exists in the case; it may predate this decision. No includes \"not reached\"."
   },
   {
    "key": "complainant_got_relief",
@@ -108,7 +105,8 @@
   {
    "key": "numbers",
    "label": "Case number(s) in file name",
-   "type": "text"
+   "type": "text",
+   "help": "Case numbers in the file name. Many appear in more than one file; use the number printed in the document."
   },
   {
    "key": "url",
@@ -121,7 +119,8 @@
    "label": "Posted month",
    "type": "text",
    "filter": "select",
-   "show": false
+   "show": false,
+   "help": "When EEOC posted the file, not the decision date."
   },
   {
    "key": "aj_found_discrimination",
@@ -153,13 +152,15 @@
    "key": "complainant_race_stated",
    "label": "Complainant race (as stated)",
    "type": "text",
-   "show": false
+   "show": false,
+   "help": "As stated in the decision, not verified."
   },
   {
    "key": "complainant_sex_stated",
    "label": "Complainant sex (as stated)",
    "type": "text",
-   "show": false
+   "show": false,
+   "help": "As stated in the decision, not verified."
   },
   {
    "key": "disability_condition",
@@ -257,6 +258,40 @@
    "label": "Prompt version",
    "type": "text",
    "show": false
+  }
+ ],
+ "stats": [
+  {
+   "label": "Decisions",
+   "expr": "count(*)"
+  },
+  {
+   "label": "Agencies",
+   "expr": "count(DISTINCT agency)"
+  },
+  {
+   "label": "Discrimination found",
+   "expr": "count(*) FILTER (WHERE discrimination_found)",
+   "hint": "Rows marked \"discrimination found\". Model-read."
+  },
+  {
+   "label": "Posted",
+   "expr": "min(posted_month) || ' to ' || max(posted_month)"
+  }
+ ],
+ "charts": [
+  {
+   "type": "month",
+   "title": "By month",
+   "label": "posted_month",
+   "unit": "decisions"
+  },
+  {
+   "type": "top",
+   "title": "Top agencies",
+   "label": "agency",
+   "unit": "decisions",
+   "limit": 10
   }
  ]
 }

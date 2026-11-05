@@ -1,7 +1,7 @@
 {
  "id": "opm-cba",
  "title": "OPM union contracts",
- "blurb": "Every federal collective bargaining agreement in OPM's public database, with a first-pass flag for which were terminated.",
+ "blurb": "Federal union contracts from OPM, with termination flags.",
  "hfDataset": "abigailhaddad/opm-cba-agreements",
  "source": {
   "format": "csv",
@@ -10,17 +10,11 @@
   ]
  },
  "key": "id",
- "asOf": {
-  "sql": "SELECT CAST(count(*) AS VARCHAR) || ' agreements, ' || CAST(sum(CASE WHEN download_status = 'ok' THEN 1 ELSE 0 END) AS VARCHAR) || ' with a downloaded file' FROM t",
-  "label": "In this table: {value}."
- },
- "covers": "One row per record in OPM's collective bargaining agreement database, with OPM's own fields, the downloaded PDF and its extracted text (stored on Hugging Face), and a termination flag from the executive orders that removed agencies from collective bargaining. This is an unofficial copy.",
+ "covers": "One row per agreement in OPM's database, with the PDF and its text on Hugging Face. Unofficial copy.",
  "caveats": [
-  "The termination flags are leads to check, not findings. \"inferred\" means the agency ended all its agreements in some category and this one falls in it (mostly Defense); the order itself could not be downloaded.",
-  "Court and injunction status goes stale quickly. Check any single flag before relying on it.",
-  "OPM requires covered agencies to report each agreement's status monthly. That spreadsheet would be the real list, and it is not public.",
-  "Some records share one file, and a few listed files could not be downloaded (see Download status). Scanned agreements have little or no text; no OCR was run.",
-  "The table is a snapshot. The listing check runs weekly, but the file downloads, text and flags are rebuilt by hand."
+  "Termination flags are leads, not findings. \"Inferred\" means the agency ended all its agreements in a category.",
+  "Court status goes stale. Check a flag before relying on it.",
+  "The weekly job checks OPM's listing only. Files, text and flags are rebuilt by hand."
  ],
  "links": [
   {
@@ -113,7 +107,8 @@
    "key": "termination_flag",
    "label": "Termination flag",
    "type": "text",
-   "filter": "select"
+   "filter": "select",
+   "help": "Leads, not findings. \"inferred\": the agency ended all agreements in a category and the order itself could not be downloaded. OPM's own monthly status list is not public."
   },
   {
    "key": "pages",
@@ -156,7 +151,8 @@
    "label": "Download status",
    "type": "text",
    "filter": "select",
-   "show": false
+   "show": false,
+   "help": "A few listed files could not be downloaded. Some records share one file."
   },
   {
    "key": "download_http",
@@ -211,7 +207,8 @@
    "label": "Text status",
    "type": "text",
    "filter": "select",
-   "show": false
+   "show": false,
+   "help": "Scanned agreements have little or no text. No OCR was run."
   },
   {
    "key": "eo_coverage",
@@ -250,6 +247,46 @@
    "label": "Termination sources",
    "type": "text",
    "show": false
+  }
+ ],
+ "stats": [
+  {
+   "label": "Agreements",
+   "expr": "count(*)"
+  },
+  {
+   "label": "Agencies",
+   "expr": "count(DISTINCT agencyName)"
+  },
+  {
+   "label": "Unions",
+   "expr": "count(DISTINCT laborUnionName)"
+  },
+  {
+   "label": "Pages",
+   "expr": "sum(pages)"
+  }
+ ],
+ "charts": [
+  {
+   "type": "top",
+   "title": "Top agencies",
+   "label": "agencyName",
+   "unit": "agreements",
+   "limit": 12
+  },
+  {
+   "type": "top",
+   "title": "Termination flag",
+   "label": "termination_flag",
+   "unit": "agreements",
+   "limit": 12
+  },
+  {
+   "type": "year",
+   "title": "Expiring",
+   "label": "strftime(expirationDate, '%Y')",
+   "unit": "agreements"
   }
  ]
 }
