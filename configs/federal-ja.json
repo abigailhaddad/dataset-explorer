@@ -1,0 +1,212 @@
+{
+ "id": "federal-ja",
+ "title": "Federal J&A documents",
+ "blurb": "Justifications for contracts awarded without full and open competition, posted on SAM.gov since 2025-01-20.",
+ "hfDataset": "abigailhaddad/federal-ja-documents",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/federal-ja-documents/resolve/main/data/notices.parquet"
+  ]
+ },
+ "key": "notice_id",
+ "asOf": {
+  "sql": "SELECT CAST(max(posted_date) AS VARCHAR) FROM t",
+  "label": "Latest notice in this table was posted {value} (UTC)."
+ },
+ "covers": "One row per SAM.gov Contract Opportunities notice that is a Justification and Approval (or a similar justification for other than full and open competition). The original files and their extracted text are in the dataset's other tables on Hugging Face; this page shows the notice table.",
+ "caveats": [
+  "About half the rows are Special Notices picked because their title suggests a justification, not notices SAM typed as Justification. The \"Why it is here\" column says which.",
+  "Award amounts and the competition fields come from SAM's award block or a match to USAspending where one was found. Many rows have no match, and a blank is not \"none\".",
+  "Some attachments could not be saved (not public, deleted, or only a link), so the files folder for a notice can be empty or missing.",
+  "The AI-generated extraction and theme tables in the dataset are experimental and are not shown here."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/federal-ja-documents"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/federal-ja-documents"
+  }
+ ],
+ "searchColumns": [
+  "title",
+  "agency",
+  "office",
+  "awardee",
+  "solicitation_number",
+  "award_number",
+  "description"
+ ],
+ "defaultSort": {
+  "col": "posted_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "detail": {
+  "title": "{title}",
+  "links": [
+   {
+    "label": "Notice on SAM.gov",
+    "href": "{sam_link}"
+   },
+   {
+    "label": "Saved files on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/federal-ja-documents/tree/main/files/{notice_id:enc}"
+   },
+   {
+    "label": "Award on USAspending",
+    "href": "{usaspending_permalink}"
+   }
+  ]
+ },
+ "columns": [
+  {
+   "key": "notice_id",
+   "label": "Notice id",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "posted_date",
+   "label": "Posted",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text",
+   "link": "{sam_link}"
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "sub_tier",
+   "label": "Sub-tier",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "office",
+   "label": "Office",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "awardee",
+   "label": "Awardee",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "award_amount",
+   "label": "Award amount",
+   "type": "number",
+   "filter": "range",
+   "format": "currency"
+  },
+  {
+   "key": "usaspending_extent_competed",
+   "label": "Extent competed (USAspending)",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "type",
+   "label": "Notice type",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "collection_reason",
+   "label": "Why it is here",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "solicitation_number",
+   "label": "Solicitation number",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "award_number",
+   "label": "Award number",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "award_date",
+   "label": "Award date",
+   "type": "date",
+   "show": false
+  },
+  {
+   "key": "naics_code",
+   "label": "NAICS",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "sam_justification_authority",
+   "label": "Authority cited (SAM)",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "attachment_count",
+   "label": "Attachments listed",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "usaspending_matched",
+   "label": "Matched to USAspending",
+   "type": "bool",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "usaspending_total_obligated",
+   "label": "Total obligated (USAspending)",
+   "type": "number",
+   "show": false,
+   "format": "currency"
+  },
+  {
+   "key": "usaspending_recipient_name",
+   "label": "Recipient (USAspending)",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "usaspending_permalink",
+   "label": "USAspending award page",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "sam_link",
+   "label": "SAM.gov link",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "description",
+   "label": "Description",
+   "type": "text",
+   "show": false
+  }
+ ]
+}

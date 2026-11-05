@@ -1,0 +1,262 @@
+{
+ "id": "eeoc",
+ "title": "EEOC appellate decisions",
+ "blurb": "Fields read from each federal-sector appeal decision EEOC has posted since 2025.",
+ "hfDataset": "abigailhaddad/eeoc-appellate-decisions",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/eeoc-appellate-decisions/resolve/main/extracted/decisions.parquet"
+  ]
+ },
+ "key": "sha256",
+ "asOf": {
+  "sql": "SELECT max(posted_month) FROM t",
+  "label": "Latest EEOC posting month in this table: {value}."
+ },
+ "covers": "One row per unique file EEOC posted from 2025 onward. A model read each decision and filled in the case fields below. Older decisions and files that are not decisions are in the separate listing table.",
+ "caveats": [
+  "These fields are model outputs. Check anything you rely on against the decision itself (the source link). The answer key used to test them was made by Claude agents, not lawyers, and only columns that passed testing are included.",
+  "Posting month is when EEOC posted the file, not when the decision was issued. EEOC posted almost nothing between December 2024 and January 2026, then posted decisions issued during that gap.",
+  "\"Discrimination found\" means a finding of discrimination exists in the case; it may predate this decision, and No includes \"not reached\".",
+  "Some decision dates are blank because none could be read. The race and sex columns are as stated in the decision, not verified.",
+  "Many case numbers appear in more than one file. Use the case number printed in the document, and the file hash to spot exact copies."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/eeoc-appellate-decisions"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/eeoc-appellate-decisions"
+  },
+  {
+   "label": "Accuracy by column",
+   "href": "https://github.com/abigailhaddad/eeoc-appellate-decisions/blob/main/extraction/accuracy.csv"
+  }
+ ],
+ "searchColumns": [
+  "agency",
+  "job_title",
+  "disability_condition",
+  "numbers",
+  "file_name"
+ ],
+ "defaultSort": {
+  "col": "decision_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "detail": {
+  "title": "{agency}, decided {decision_date}",
+  "links": [
+   {
+    "label": "Open the decision on eeoc.gov",
+    "href": "{url}"
+   }
+  ]
+ },
+ "columns": [
+  {
+   "key": "sha256",
+   "label": "File hash (SHA-256)",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "decision_date",
+   "label": "Decision date",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "appealing_party",
+   "label": "Appealing party",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "job_title",
+   "label": "Complainant's job title",
+   "type": "text"
+  },
+  {
+   "key": "discrimination_found",
+   "label": "Discrimination found",
+   "type": "bool",
+   "filter": "select"
+  },
+  {
+   "key": "complainant_got_relief",
+   "label": "Complainant got relief",
+   "type": "bool",
+   "filter": "select"
+  },
+  {
+   "key": "file_name",
+   "label": "File",
+   "type": "text",
+   "link": "{url}"
+  },
+  {
+   "key": "numbers",
+   "label": "Case number(s) in file name",
+   "type": "text"
+  },
+  {
+   "key": "url",
+   "label": "EEOC URL",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "posted_month",
+   "label": "Posted month",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "aj_found_discrimination",
+   "label": "Administrative judge found discrimination",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "agency_action_on_aj",
+   "label": "Agency action on the judge's decision",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "commission_changed_result",
+   "label": "Commission changed the result",
+   "type": "bool",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "date_formal_complaint",
+   "label": "Date of formal complaint",
+   "type": "date",
+   "show": false
+  },
+  {
+   "key": "complainant_race_stated",
+   "label": "Complainant race (as stated)",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "complainant_sex_stated",
+   "label": "Complainant sex (as stated)",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "disability_condition",
+   "label": "Disability or condition",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "representation",
+   "label": "Representation",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "basis_race",
+   "label": "Basis: race",
+   "type": "bool",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "basis_sex",
+   "label": "Basis: sex",
+   "type": "bool",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "basis_disability",
+   "label": "Basis: disability",
+   "type": "bool",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "basis_age",
+   "label": "Basis: age",
+   "type": "bool",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "basis_reprisal",
+   "label": "Basis: reprisal",
+   "type": "bool",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "issue_performance_appraisal",
+   "label": "Issue: performance appraisal",
+   "type": "bool",
+   "show": false
+  },
+  {
+   "key": "issue_non_selection_or_promotion",
+   "label": "Issue: non-selection or promotion",
+   "type": "bool",
+   "show": false
+  },
+  {
+   "key": "theme_telework",
+   "label": "Theme: telework",
+   "type": "bool",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "values_dropped",
+   "label": "Values dropped by checks",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "source_warnings",
+   "label": "Errors printed in the decision",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "ocr_used",
+   "label": "OCR used",
+   "type": "bool",
+   "show": false
+  },
+  {
+   "key": "model",
+   "label": "Model",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "prompt_version",
+   "label": "Prompt version",
+   "type": "text",
+   "show": false
+  }
+ ]
+}

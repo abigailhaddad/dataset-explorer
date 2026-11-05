@@ -1,0 +1,120 @@
+{
+ "id": "eeoc-listing",
+ "title": "EEOC file listing",
+ "blurb": "Every link on EEOC's appellate decisions page, as of the last crawl. An index of files, not of decisions.",
+ "hfDataset": "abigailhaddad/eeoc-appellate-decisions",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/eeoc-appellate-decisions/resolve/main/listing.parquet"
+  ]
+ },
+ "key": "url",
+ "asOf": {
+  "sql": "SELECT CAST(max(first_seen) AS VARCHAR) FROM t",
+  "label": "Newest link first seen: {value}."
+ },
+ "covers": "One row per link listed on https://www.eeoc.gov/federal-sector/appellate-decisions. The first full crawl was 2026-11-01 and matched the site's own total that day; a daily job adds new links.",
+ "caveats": [
+  "The posted date is the date in the file's folder name on eeoc.gov. It is when EEOC posted the file, not when the decision was issued.",
+  "The number in a file name does not reliably identify a decision. Many numbers appear in more than one file, and some names have no usable number.",
+  "Page and position are where the link was first seen. EEOC's listing order shifts, so use the URL as the identifier.",
+  "A couple of rows link to the bare site root, https://www.eeoc.gov."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/eeoc-appellate-decisions"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/eeoc-appellate-decisions"
+  }
+ ],
+ "searchColumns": [
+  "file_name",
+  "numbers",
+  "numbers_loose"
+ ],
+ "defaultSort": {
+  "col": "posted_folder_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "detail": {
+  "title": "{file_name}",
+  "links": [
+   {
+    "label": "Open the file on eeoc.gov",
+    "href": "{url}"
+   }
+  ]
+ },
+ "columns": [
+  {
+   "key": "url",
+   "label": "URL",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "posted_folder_date",
+   "label": "Posted (folder date)",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "file_name",
+   "label": "File",
+   "type": "text",
+   "link": "{url}"
+  },
+  {
+   "key": "ext",
+   "label": "Type",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "numbers",
+   "label": "Number(s) in file name",
+   "type": "text"
+  },
+  {
+   "key": "numbers_loose",
+   "label": "Number(s) recovered from irregular names",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "numbers_loose_rule",
+   "label": "How they were recovered",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "folder",
+   "label": "Folder",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "first_seen",
+   "label": "First seen",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "page",
+   "label": "Page first seen",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "position",
+   "label": "Position first seen",
+   "type": "number",
+   "show": false
+  }
+ ]
+}

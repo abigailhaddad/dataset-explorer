@@ -1,0 +1,207 @@
+{
+ "id": "dod-contracts",
+ "title": "DoD daily contracts",
+ "blurb": "Contract awards in the Defense Department's daily announcements on war.gov, July 2014 to now.",
+ "hfDataset": "abigailhaddad/dod-daily-contracts",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00000.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00001.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00002.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00003.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00004.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00005.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00006.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00007.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00008.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00009.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00010.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00011.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00012.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00013.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00014.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00015.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00016.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00017.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00018.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00019.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00020.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00021.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00022.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00023.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00024.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00025.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00026.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00027.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00028.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00029.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00030.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00031.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00032.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00033.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00034.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00035.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00036.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00037.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00038.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00039.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00040.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00041.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00042.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00043.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00044.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00045.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00046.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00047.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00048.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00049.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00050.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00051.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00052.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00053.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00054.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00055.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00056.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00057.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00058.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00059.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00060.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00061.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00062.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00063.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00064.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00065.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00066.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00067.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00068.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00069.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00070.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00071.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00072.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00073.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00074.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00075.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00076.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00077.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00078.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00079.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00080.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00081.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00082.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00083.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00084.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00085.parquet",
+   "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts/resolve/main/data/shard-00086.parquet"
+  ],
+  "materialize": true
+ },
+ "key": "row_key",
+ "asOf": {
+  "sql": "SELECT CAST(max(date) AS VARCHAR) FROM t",
+  "label": "Latest announcement in this table: {value}."
+ },
+ "covers": "One row per contract award in the Department's daily contract announcements (not one row per day). The award text is as published; dollar amounts and contract numbers are only inside that text.",
+ "caveats": [
+  "Company and place are a best-effort pattern match on the start of each paragraph. They are left blank when the match is not confident, and they are not scraped facts.",
+  "Fewer than ten announcement days (out of about 3,000) are missing because war.gov errors on them or removed them.",
+  "The agency header keeps the source's own typos and casing.",
+  "U.S. government works are in the public domain. This is not an official Department product."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/dod"
+  },
+  {
+   "label": "Source: war.gov contract announcements",
+   "href": "https://www.war.gov/News/Contracts/"
+  }
+ ],
+ "searchColumns": [
+  "text",
+  "company",
+  "place",
+  "agency"
+ ],
+ "defaultSort": {
+  "col": "date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "detail": {
+  "title": "{company}, {date}",
+  "links": [
+   {
+    "label": "Announcement on war.gov",
+    "href": "{link}"
+   }
+  ]
+ },
+ "columns": [
+  {
+   "key": "row_key",
+   "label": "Row key",
+   "type": "text",
+   "expr": "link || '#' || CAST(row_index AS VARCHAR)",
+   "show": false
+  },
+  {
+   "key": "date",
+   "label": "Announced",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "agency",
+   "label": "Agency header",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "company",
+   "label": "Company",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "place",
+   "label": "Place",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "text",
+   "label": "Award text",
+   "type": "text"
+  },
+  {
+   "key": "article_title",
+   "label": "Announcement",
+   "type": "text",
+   "link": "{link}"
+  },
+  {
+   "key": "link",
+   "label": "Announcement URL",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "row_index",
+   "label": "Position in announcement",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "scraped_at",
+   "label": "Scraped at",
+   "type": "text",
+   "show": false
+  }
+ ]
+}

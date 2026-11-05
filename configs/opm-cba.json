@@ -1,0 +1,255 @@
+{
+ "id": "opm-cba",
+ "title": "OPM union contracts",
+ "blurb": "Every federal collective bargaining agreement in OPM's public database, with a first-pass flag for which were terminated.",
+ "hfDataset": "abigailhaddad/opm-cba-agreements",
+ "source": {
+  "format": "csv",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/opm-cba-agreements/resolve/main/agreements.csv"
+  ]
+ },
+ "key": "id",
+ "asOf": {
+  "sql": "SELECT CAST(count(*) AS VARCHAR) || ' agreements, ' || CAST(sum(CASE WHEN download_status = 'ok' THEN 1 ELSE 0 END) AS VARCHAR) || ' with a downloaded file' FROM t",
+  "label": "In this table: {value}."
+ },
+ "covers": "One row per record in OPM's collective bargaining agreement database, with OPM's own fields, the downloaded PDF and its extracted text (stored on Hugging Face), and a termination flag from the executive orders that removed agencies from collective bargaining. This is an unofficial copy.",
+ "caveats": [
+  "The termination flags are leads to check, not findings. \"inferred\" means the agency ended all its agreements in some category and this one falls in it (mostly Defense); the order itself could not be downloaded.",
+  "Court and injunction status goes stale quickly. Check any single flag before relying on it.",
+  "OPM requires covered agencies to report each agreement's status monthly. That spreadsheet would be the real list, and it is not public.",
+  "Some records share one file, and a few listed files could not be downloaded (see Download status). Scanned agreements have little or no text; no OCR was run.",
+  "The table is a snapshot. The listing check runs weekly, but the file downloads, text and flags are rebuilt by hand."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/opm-cba-agreements"
+  },
+  {
+   "label": "Code and methods",
+   "href": "https://github.com/abigailhaddad/opm-cba-archive"
+  },
+  {
+   "label": "OPM's database",
+   "href": "https://www.opm.gov/policy-data-oversight/labor-management-relations/collective-bargaining-agreements/"
+  }
+ ],
+ "searchColumns": [
+  "agencyName",
+  "subAgencyOrComponent",
+  "laborUnionName",
+  "fileName",
+  "activityOfficeRegion"
+ ],
+ "defaultSort": {
+  "col": "agencyName",
+  "dir": "asc"
+ },
+ "pageSize": 50,
+ "detail": {
+  "title": "{agencyName}: {laborUnionName}",
+  "links": [
+   {
+    "label": "PDF on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/opm-cba-agreements/resolve/main/pdfs/{id:enc}.pdf",
+    "showIf": {
+     "col": "download_status",
+     "equals": "ok"
+    }
+   },
+   {
+    "label": "Extracted text",
+    "href": "https://huggingface.co/datasets/abigailhaddad/opm-cba-agreements/resolve/main/text/{id:enc}.txt",
+    "showIf": {
+     "col": "download_status",
+     "equals": "ok"
+    }
+   },
+   {
+    "label": "File on OPM's site",
+    "href": "{fileUrl}"
+   }
+  ]
+ },
+ "columns": [
+  {
+   "key": "id",
+   "label": "OPM record id",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "agencyName",
+   "label": "Agency",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "subAgencyOrComponent",
+   "label": "Sub-agency or component",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "laborUnionName",
+   "label": "Union",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "local",
+   "label": "Local",
+   "type": "text"
+  },
+  {
+   "key": "expirationDate",
+   "label": "Expires",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "termination_flag",
+   "label": "Termination flag",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "pages",
+   "label": "Pages",
+   "type": "number",
+   "filter": "range"
+  },
+  {
+   "key": "fileName",
+   "label": "File on OPM's site",
+   "type": "text",
+   "link": "{fileUrl}"
+  },
+  {
+   "key": "activityOfficeRegion",
+   "label": "Activity, office or region",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "busCodes",
+   "label": "Bargaining unit codes",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "listed_fileSize",
+   "label": "Listed file size",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "fileUrl",
+   "label": "OPM file URL",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "download_status",
+   "label": "Download status",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "download_http",
+   "label": "Download HTTP status",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "bytes",
+   "label": "Bytes",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "sha256",
+   "label": "File hash (SHA-256)",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "sha256_dup_count",
+   "label": "Records sharing this file",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "duplicate_of",
+   "label": "Duplicate of",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "is_pdf_magic",
+   "label": "Is a real PDF",
+   "type": "bool",
+   "show": false
+  },
+  {
+   "key": "words",
+   "label": "Words",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "encrypted",
+   "label": "Encrypted",
+   "type": "bool",
+   "show": false
+  },
+  {
+   "key": "text_status",
+   "label": "Text status",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "eo_coverage",
+   "label": "Executive order coverage",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "eo_section",
+   "label": "Executive order section",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "eo_note",
+   "label": "Executive order note",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "psf_indicator",
+   "label": "Police, fire or security unit",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "termination_basis",
+   "label": "Termination basis",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "termination_sources",
+   "label": "Termination sources",
+   "type": "text",
+   "show": false
+  }
+ ]
+}

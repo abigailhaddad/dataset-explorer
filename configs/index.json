@@ -1,0 +1,27 @@
+[
+ {
+  "id": "eeoc",
+  "title": "EEOC appellate decisions",
+  "blurb": "Fields read from each federal-sector appeal decision EEOC has posted since 2025."
+ },
+ {
+  "id": "eeoc-listing",
+  "title": "EEOC file listing",
+  "blurb": "Every link on EEOC's appellate decisions page, as of the last crawl. An index of files, not of decisions."
+ },
+ {
+  "id": "opm-cba",
+  "title": "OPM union contracts",
+  "blurb": "Every federal collective bargaining agreement in OPM's public database, with a first-pass flag for which were terminated."
+ },
+ {
+  "id": "federal-ja",
+  "title": "Federal J&A documents",
+  "blurb": "Justifications for contracts awarded without full and open competition, posted on SAM.gov since 2025-01-20."
+ },
+ {
+  "id": "dod-contracts",
+  "title": "DoD daily contracts",
+  "blurb": "Contract awards in the Defense Department's daily announcements on war.gov, July 2014 to now."
+ }
+]
