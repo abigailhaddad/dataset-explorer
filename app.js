@@ -24,7 +24,8 @@ const EXPORT_LIMIT = 250000;
 const FACET_LIMIT = 500;
 const NARROW_MIN = 10; // show the "Narrow the list" box only above this many options
 const CHART_GROUP_LIMIT = 20000;
-const PAGE_SIZES = [25, 50, 100, 200];
+const PAGE_SIZES = [10, 25, 50, 100, 200];
+const PHONE_PAGE_SIZE = 10; // a phone shows each row as a tall card, so start with a short page
 const PIVOT_ROWS = 200;
 const PIVOT_COLS = 12;
 const PIVOT_CELL_LIMIT = 200000;
@@ -437,7 +438,8 @@ function readState(params) {
   view.sort = { col, dir: dir === 'desc' ? 'desc' : 'asc' };
   view.page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
   const size = parseInt(p.get('size') || '', 10);
-  view.size = pageSizes().includes(size) ? size : config.pageSize;
+  const phone = window.matchMedia('(max-width: 640px)').matches;
+  view.size = pageSizes().includes(size) ? size : phone ? PHONE_PAGE_SIZE : config.pageSize;
 
   view.pivot = pivotDefaults();
   if (config.pivot) {

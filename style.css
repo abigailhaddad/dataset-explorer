@@ -346,4 +346,8 @@ a.recordlink { font-weight: 600; }
   dl.fields dd { margin-bottom: 0.5rem; }
   .rec-title { font-size: 1.4rem; }
   .charts-grid .chart-card:last-child:nth-child(odd) { grid-column: auto; }
+  /* Bigger tap targets */
+  .site-nav a { display: inline-block; padding: 0.55rem 0.2rem; }
+  .toolbar-row button, #theme, .pager button, .dactions button { min-height: 2.5rem; }
+  summary { padding-top: 0.45rem; padding-bottom: 0.45rem; }
 }
