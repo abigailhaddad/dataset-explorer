@@ -20,8 +20,8 @@ import urllib.parse
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'dist-sites')
 
-# TODO: set this to the adoption page's address once it is deployed. It is the only place it lives.
-MORE_DATASETS_URL = '#todo-adoption-page'
+# The adoption page, which links to every dataset. It is the only place this address lives.
+MORE_DATASETS_URL = 'https://adopt.abigailhaddad.com'
 
 GITHUB = 'https://github.com/'
 HF = 'https://huggingface.co/datasets/'
