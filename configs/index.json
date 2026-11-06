@@ -77,5 +77,41 @@
    "questions",
    "usajobs-question"
   ]
+ },
+ {
+  "id": "dc-contracts",
+  "title": "DC contracts",
+  "blurb": "Contract periods from DC’s procurement portal.",
+  "aliases": [
+   "dc",
+   "dc-procurement",
+   "dc-contract"
+  ]
+ },
+ {
+  "id": "dc-purchase-orders",
+  "title": "DC purchase orders",
+  "blurb": "Purchase orders from DC’s procurement portal.",
+  "aliases": [
+   "dc-po",
+   "dc-pos",
+   "dc-purchase-order"
+  ]
+ },
+ {
+  "id": "dc-payments",
+  "title": "DC payments",
+  "blurb": "Payment lines from DC’s procurement portal.",
+  "aliases": [
+   "dc-payment"
+  ]
+ },
+ {
+  "id": "dc-solicitations",
+  "title": "DC solicitations",
+  "blurb": "Open and archived solicitations from DC’s procurement portal.",
+  "aliases": [
+   "dc-solicitation"
+  ]
  }
 ]

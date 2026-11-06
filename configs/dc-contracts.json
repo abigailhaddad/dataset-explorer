@@ -1,0 +1,569 @@
+{
+ "id": "dc-contracts",
+ "title": "DC contracts",
+ "blurb": "Contract periods from DC’s procurement portal.",
+ "hfDataset": "abigailhaddad/dc-procurement",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/dc-procurement/resolve/main/data/contracts.parquet"
+  ]
+ },
+ "key": "id",
+ "covers": "One row per option period of a contract. An unofficial copy of what contracts.ocp.dc.gov publishes, pulled weekly.",
+ "caveats": [
+  "A row is one option period, not a contract. Add up Base-period amount, not Amount, or contracts count more than once.",
+  "DC’s portal doesn’t publish everything the District buys, and some agencies list few or none of their contracts.",
+  "The portal’s own terms were not found. Its data.gov listing says CC BY 4.0. Check before reuse and credit DC’s Office of Contracting and Procurement."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/dc-procurement"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/dc-software-procurement"
+  },
+  {
+   "label": "DC’s contracts page",
+   "href": "https://contracts.ocp.dc.gov/contracts/search"
+  }
+ ],
+ "searchColumns": [
+  "title",
+  "contract_number",
+  "vendor",
+  "agency"
+ ],
+ "defaultSort": {
+  "col": "start_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "id",
+   "label": "Period id",
+   "type": "text",
+   "show": false,
+   "help": "The id DC’s site gives this option period."
+  },
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text"
+  },
+  {
+   "key": "contract_number",
+   "label": "Contract",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "vendor",
+   "label": "Vendor",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "As DC’s portal names it; abbreviated and variant names are mapped to one name."
+  },
+  {
+   "key": "period_kind",
+   "label": "Period",
+   "type": "text",
+   "format": "code",
+   "filter": "select",
+   "valueLabels": {
+    "base": "Base",
+    "option": "Option",
+    "unclear": "Unclear"
+   },
+   "help": "Base or option period. Marked by this project from the period’s label; “unclear” when the label doesn’t say."
+  },
+  {
+   "key": "option_period",
+   "label": "Period name",
+   "type": "text",
+   "show": false,
+   "help": "As typed by the District."
+  },
+  {
+   "key": "start_date",
+   "label": "Starts",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "end_date",
+   "label": "Ends",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "award_date",
+   "label": "Awarded",
+   "type": "date",
+   "show": false,
+   "filter": "range"
+  },
+  {
+   "key": "start_fiscal_year",
+   "label": "Start fiscal year",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "help": "District fiscal year (1 October to 30 September) in which the period starts."
+  },
+  {
+   "key": "amount",
+   "label": "Amount, this period",
+   "type": "number",
+   "format": "currency",
+   "help": "What DC lets the contract spend in this period. Option-period amounts often disagree with the paperwork; don’t add this column up across periods."
+  },
+  {
+   "key": "base_amount",
+   "label": "Base-period amount",
+   "type": "number",
+   "format": "currency",
+   "filter": "range",
+   "help": "The amount to use for totals: the base period only, corrected where hand-checked paperwork disagrees. Blank for option periods and for rows counted under another contract number."
+  },
+  {
+   "key": "contract_type",
+   "label": "Contract type",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "market_type",
+   "label": "Market type",
+   "type": "text",
+   "filter": "select",
+   "help": "How the contract was competed, as the District typed it."
+  },
+  {
+   "key": "nigp",
+   "label": "Commodity codes",
+   "type": "text",
+   "filter": "text",
+   "show": false,
+   "expr": "array_to_string(nigp_codes, ', ')",
+   "help": "NIGP commodity codes on DC’s listing. Assigned by the buyer and applied loosely."
+  },
+  {
+   "key": "contracting_officer",
+   "label": "Contracting officer",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "show": false
+  },
+  {
+   "key": "documents",
+   "label": "Documents",
+   "type": "number",
+   "help": "Attachments listed on DC’s page for this period."
+  },
+  {
+   "key": "listed",
+   "label": "On DC’s site now",
+   "type": "bool",
+   "filter": "select",
+   "show": false,
+   "help": "False when DC’s site no longer returns the row; it comes from an earlier pull."
+  },
+  {
+   "key": "recovered_on",
+   "label": "Put back on",
+   "type": "date",
+   "show": false,
+   "help": "Set when the row was restored after DC’s site stopped returning it in search."
+  },
+  {
+   "key": "corrected_amount",
+   "label": "Corrected amount",
+   "type": "number",
+   "format": "currency",
+   "show": false,
+   "help": "The amount in the District’s own paperwork, where it contradicts DC’s figure."
+  },
+  {
+   "key": "same_award_as",
+   "label": "Same award as",
+   "type": "text",
+   "show": false,
+   "help": "Another contract number this row is counted under."
+  },
+  {
+   "key": "portal_url",
+   "label": "DC page URL",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "portal_link",
+   "label": "On DC’s site",
+   "type": "text",
+   "expr": "CASE WHEN portal_url IS NULL THEN NULL ELSE 'Open' END",
+   "link": "{portal_url}"
+  },
+  {
+   "key": "amount_text",
+   "label": "Amount (as published)",
+   "type": "text",
+   "show": false
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
+   "label": "Contracts",
+   "subtitle": "Every contract period DC lists.",
+   "stats": [
+    {
+     "label": "Periods",
+     "expr": "count(*)",
+     "hint": "One row per option period."
+    },
+    {
+     "label": "Contracts",
+     "expr": "count(DISTINCT contract_number)"
+    },
+    {
+     "label": "Base-period total",
+     "expr": "sum(base_amount)",
+     "format": "millions",
+     "hint": "Base-period amounts added up over the rows shown."
+    },
+    {
+     "label": "Vendors",
+     "expr": "count(DISTINCT vendor)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top agencies, base-period total",
+     "label": "agency",
+     "value": "sum(base_amount)",
+     "unit": "base-period total",
+     "format": "millions",
+     "limit": 12
+    },
+    {
+     "type": "year",
+     "title": "Contracts by start year",
+     "label": "CAST(start_fiscal_year AS VARCHAR)",
+     "value": "count(DISTINCT contract_number)",
+     "unit": "contracts"
+    }
+   ]
+  },
+  {
+   "id": "agencies",
+   "label": "By agency",
+   "subtitle": "Base-period totals and contract counts.",
+   "stats": [
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Contracts",
+     "expr": "count(DISTINCT contract_number)"
+    },
+    {
+     "label": "Base-period total",
+     "expr": "sum(base_amount)",
+     "format": "millions"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Base-period total",
+     "label": "agency",
+     "value": "sum(base_amount)",
+     "unit": "base-period total",
+     "format": "millions",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Contracts",
+     "label": "agency",
+     "value": "count(DISTINCT contract_number)",
+     "unit": "contracts",
+     "limit": 15
+    }
+   ]
+  },
+  {
+   "id": "vendors",
+   "label": "By vendor",
+   "subtitle": "Who holds the most contract money.",
+   "stats": [
+    {
+     "label": "Vendors",
+     "expr": "count(DISTINCT vendor)"
+    },
+    {
+     "label": "Base-period total",
+     "expr": "sum(base_amount)",
+     "format": "millions",
+     "hint": "Base periods only, so a contract counts once."
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Base-period total",
+     "label": "vendor",
+     "value": "sum(base_amount)",
+     "unit": "base-period total",
+     "format": "millions",
+     "limit": 20,
+     "wide": true
+    },
+    {
+     "type": "top",
+     "title": "Contracts",
+     "label": "vendor",
+     "value": "count(DISTINCT contract_number)",
+     "unit": "contracts",
+     "limit": 20,
+     "wide": true
+    }
+   ]
+  },
+  {
+   "id": "time",
+   "label": "Over time",
+   "subtitle": "When periods start.",
+   "stats": [
+    {
+     "label": "Periods",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Contracts",
+     "expr": "count(DISTINCT contract_number)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Contracts by start year",
+     "label": "CAST(start_fiscal_year AS VARCHAR)",
+     "value": "count(DISTINCT contract_number)",
+     "unit": "contracts"
+    },
+    {
+     "type": "year",
+     "title": "Base-period total by start year",
+     "label": "CAST(start_fiscal_year AS VARCHAR)",
+     "value": "sum(base_amount)",
+     "unit": "base-period total",
+     "format": "millions"
+    },
+    {
+     "type": "month",
+     "title": "Periods starting, by month",
+     "label": "strftime(start_date, '%Y-%m')",
+     "value": "count(*)",
+     "unit": "periods"
+    }
+   ]
+  },
+  {
+   "id": "how",
+   "label": "How awarded",
+   "subtitle": "Market and contract types.",
+   "stats": [
+    {
+     "label": "Contracts",
+     "expr": "count(DISTINCT contract_number)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Market type",
+     "label": "market_type",
+     "value": "count(DISTINCT contract_number)",
+     "unit": "contracts",
+     "limit": 12
+    },
+    {
+     "type": "top",
+     "title": "Contract type",
+     "label": "contract_type",
+     "value": "count(DISTINCT contract_number)",
+     "unit": "contracts",
+     "limit": 12
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "vendor",
+   "contract_type",
+   "market_type",
+   "period_kind",
+   "start_fiscal_year"
+  ],
+  "measures": [
+   {
+    "id": "base",
+    "label": "Base-period amount (sum)",
+    "expr": "sum(base_amount)",
+    "format": "millions"
+   }
+  ]
+ },
+ "record": {
+  "key": "id",
+  "title": "{title}",
+  "subtitle": "{contract_number} · {vendor}",
+  "sections": [
+   {
+    "title": "Contract",
+    "columns": [
+     "contract_number",
+     "vendor",
+     "agency",
+     "contract_type",
+     "market_type",
+     "contracting_officer"
+    ]
+   },
+   {
+    "title": "Period",
+    "columns": [
+     "option_period",
+     "period_kind",
+     "start_date",
+     "end_date",
+     "award_date",
+     "start_fiscal_year"
+    ]
+   },
+   {
+    "title": "Money",
+    "columns": [
+     "amount",
+     "base_amount",
+     "corrected_amount",
+     "same_award_as"
+    ]
+   },
+   {
+    "title": "Codes and status",
+    "columns": [
+     "nigp",
+     "documents",
+     "listed",
+     "recovered_on"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "This period on DC’s site",
+    "href": "{portal_url}"
+   },
+   {
+    "label": "Dataset on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/dc-procurement"
+   }
+  ],
+  "related": [
+   {
+    "label": "Other periods of this contract",
+    "cols": [
+     "contract_number"
+    ],
+    "title": "{option_period}",
+    "sub": "{start_date} to {end_date} · {amount_text}",
+    "limit": 12
+   }
+  ],
+  "more": [
+   {
+    "id": "documents",
+    "label": "Documents",
+    "skipWhenZero": "documents",
+    "button": "Load documents",
+    "hint": "Links to the PDFs on DC’s site. The files are not copied here.",
+    "url": "https://huggingface.co/datasets/abigailhaddad/dc-procurement/resolve/main/data/documents.parquet",
+    "where": "contract_id",
+    "value": "id",
+    "limit": 200,
+    "columns": [
+     {
+      "key": "name",
+      "label": "Name"
+     },
+     {
+      "key": "category",
+      "label": "Category"
+     },
+     {
+      "key": "url",
+      "label": "File on DC’s site",
+      "link": true
+     }
+    ]
+   },
+   {
+    "id": "payments",
+    "label": "Payments on this contract",
+    "button": "Load payments",
+    "hint": "Payment lines that carry this contract number. Most payments carry none, so this is only part of what was paid. Vendor names are cut off as DC gives them.",
+    "url": "https://huggingface.co/datasets/abigailhaddad/dc-procurement/resolve/main/data/payments.parquet",
+    "where": "contract_number",
+    "value": "contract_number",
+    "limit": 200,
+    "columns": [
+     {
+      "key": "payment_date",
+      "label": "Paid",
+      "type": "date"
+     },
+     {
+      "key": "voucher_amount",
+      "label": "Amount",
+      "type": "number",
+      "format": "currency"
+     },
+     {
+      "key": "vendor",
+      "label": "Vendor"
+     },
+     {
+      "key": "po_number",
+      "label": "Purchase order"
+     },
+     {
+      "key": "voucher_number",
+      "label": "Voucher"
+     }
+    ]
+   }
+  ]
+ }
+}

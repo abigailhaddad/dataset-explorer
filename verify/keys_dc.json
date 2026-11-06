@@ -1,0 +1,25 @@
+{
+ "dc-contracts": [
+  "Q1cxMDAxNDTCpkJhc2UgUGVyaW9k",
+  "Q1cxMDA2NDfCpkJhc2UgUGVyaW9k",
+  "Q1cxMjEwMjfCpkJhc2UgUGVyaW9k",
+  "Q1cxMDAwNDLCpk9wdGlvbiAz"
+ ],
+ "dc-purchase-orders": [
+  "PO375318-V2",
+  "PO607906-V2",
+  "PO734520"
+ ],
+ "dc-payments": [
+  "UE81NDIyNzDCpjQgKDktMTYp|VOE20570|PO542270|CW42910|7400.0|2016-10-06",
+  "UE81NDIxNzPCpjMoOS0xNik=|VOE21213|PO542173||30000.0|2016-10-06",
+  "UE82NzUzNzjCpkFCQy00NjgwLVBPNjc1Mzc4LUNN||PO675378|N/A|-1680.07|2023-02-23",
+  "UE82Nzg4MDPCpkJJTEwwNTI1OQ==|VOL70053|PO678803||42000.0|2023-02-18"
+ ],
+ "dc-solicitations": [
+  "Doc842014|open",
+  "PCSB-2019-01|2019",
+  "Doc792396|2026",
+  "DCKA-2025-B-0070|2026"
+ ]
+}

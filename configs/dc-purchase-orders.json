@@ -1,0 +1,382 @@
+{
+ "id": "dc-purchase-orders",
+ "title": "DC purchase orders",
+ "blurb": "Purchase orders from DC’s procurement portal.",
+ "hfDataset": "abigailhaddad/dc-procurement",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/dc-procurement/resolve/main/data/purchase_orders.parquet"
+  ]
+ },
+ "joins": [
+  {
+   "id": "cls",
+   "on": "nigp_class",
+   "urls": [
+    "https://huggingface.co/datasets/abigailhaddad/dc-procurement/resolve/main/data/nigp_classes.parquet"
+   ]
+  }
+ ],
+ "key": "po_number",
+ "covers": "One row per purchase order. An unofficial copy of what contracts.ocp.dc.gov publishes, pulled weekly.",
+ "caveats": [
+  "A revised order comes back under a new -Vn number and replaces the old one.",
+  "Commodity codes are assigned by the buyer and applied loosely.",
+  "The portal’s own terms were not found. Its data.gov listing says CC BY 4.0. Check before reuse and credit DC’s Office of Contracting and Procurement."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/dc-procurement"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/dc-software-procurement"
+  },
+  {
+   "label": "DC’s purchase orders page",
+   "href": "https://contracts.ocp.dc.gov/purchase/search"
+  }
+ ],
+ "searchColumns": [
+  "po_number",
+  "supplier",
+  "agency"
+ ],
+ "defaultSort": {
+  "col": "ordered_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "po_number",
+   "label": "Purchase order",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "supplier",
+   "label": "Supplier",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "As DC’s portal names it; abbreviated and variant names are mapped to one name."
+  },
+  {
+   "key": "ordered_date",
+   "label": "Ordered",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "po_total",
+   "label": "Total",
+   "type": "number",
+   "format": "currency",
+   "filter": "range",
+   "help": "The order total in dollars."
+  },
+  {
+   "key": "fiscal_year",
+   "label": "Fiscal year",
+   "type": "text",
+   "filter": "select",
+   "help": "As published, for example FY2026."
+  },
+  {
+   "key": "nigp_class",
+   "label": "Commodity class",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "show": false,
+   "help": "First three digits of the commodity code."
+  },
+  {
+   "key": "nigp_class_name",
+   "label": "Commodity",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "join": "cls",
+   "from": "description",
+   "help": "Description of the commodity class."
+  },
+  {
+   "key": "nigp_code",
+   "label": "Commodity code",
+   "type": "text",
+   "filter": "text",
+   "show": false
+  },
+  {
+   "key": "listed",
+   "label": "On DC’s site now",
+   "type": "bool",
+   "filter": "select",
+   "show": false,
+   "help": "False when DC’s site no longer returns the row; it comes from an earlier pull."
+  },
+  {
+   "key": "po_total_text",
+   "label": "Total (as published)",
+   "type": "text",
+   "show": false
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
+   "label": "Purchase orders",
+   "subtitle": "Every purchase order DC lists.",
+   "stats": [
+    {
+     "label": "Orders",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Total",
+     "expr": "sum(po_total)",
+     "format": "billions"
+    },
+    {
+     "label": "Suppliers",
+     "expr": "count(DISTINCT supplier)"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top agencies, total",
+     "label": "agency",
+     "value": "sum(po_total)",
+     "unit": "total",
+     "format": "millions",
+     "limit": 12
+    },
+    {
+     "type": "year",
+     "title": "Orders by fiscal year",
+     "label": "CAST(fiscal_year AS VARCHAR)",
+     "value": "count(*)",
+     "unit": "orders"
+    }
+   ]
+  },
+  {
+   "id": "agencies",
+   "label": "By agency",
+   "subtitle": "Order totals and counts.",
+   "stats": [
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Total",
+     "expr": "sum(po_total)",
+     "format": "billions"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Total",
+     "label": "agency",
+     "value": "sum(po_total)",
+     "unit": "total",
+     "format": "millions",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Orders",
+     "label": "agency",
+     "value": "count(*)",
+     "unit": "orders",
+     "limit": 15
+    }
+   ]
+  },
+  {
+   "id": "suppliers",
+   "label": "By supplier",
+   "subtitle": "Who gets the most orders.",
+   "stats": [
+    {
+     "label": "Suppliers",
+     "expr": "count(DISTINCT supplier)"
+    },
+    {
+     "label": "Total",
+     "expr": "sum(po_total)",
+     "format": "billions"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Total",
+     "label": "supplier",
+     "value": "sum(po_total)",
+     "unit": "total",
+     "format": "millions",
+     "limit": 20,
+     "wide": true
+    },
+    {
+     "type": "top",
+     "title": "Orders",
+     "label": "supplier",
+     "value": "count(*)",
+     "unit": "orders",
+     "limit": 20,
+     "wide": true
+    }
+   ]
+  },
+  {
+   "id": "time",
+   "label": "Over time",
+   "subtitle": "Orders by year.",
+   "stats": [
+    {
+     "label": "Orders",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Total",
+     "expr": "sum(po_total)",
+     "format": "billions"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Orders by fiscal year",
+     "label": "CAST(fiscal_year AS VARCHAR)",
+     "value": "count(*)",
+     "unit": "orders"
+    },
+    {
+     "type": "year",
+     "title": "Total by fiscal year",
+     "label": "CAST(fiscal_year AS VARCHAR)",
+     "value": "sum(po_total)",
+     "unit": "total",
+     "format": "billions"
+    }
+   ]
+  },
+  {
+   "id": "commodity",
+   "label": "By commodity",
+   "subtitle": "What the orders buy.",
+   "stats": [
+    {
+     "label": "Classes",
+     "expr": "count(DISTINCT nigp_class)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Total by commodity class",
+     "label": "nigp_class_name",
+     "value": "sum(po_total)",
+     "unit": "total",
+     "format": "millions",
+     "limit": 20,
+     "wide": true
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "supplier",
+   "fiscal_year",
+   "nigp_class_name"
+  ],
+  "measures": [
+   {
+    "id": "total",
+    "label": "Total (sum)",
+    "expr": "sum(po_total)",
+    "format": "millions"
+   }
+  ]
+ },
+ "record": {
+  "key": "po_number",
+  "title": "{po_number}",
+  "subtitle": "{supplier} · {agency}",
+  "sections": [
+   {
+    "title": "Order",
+    "columns": [
+     "po_number",
+     "supplier",
+     "agency",
+     "ordered_date",
+     "fiscal_year",
+     "po_total"
+    ]
+   },
+   {
+    "title": "Commodity",
+    "columns": [
+     "nigp_class_name",
+     "nigp_class",
+     "nigp_code"
+    ]
+   },
+   {
+    "title": "Status",
+    "columns": [
+     "listed"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "Purchase orders on DC’s site",
+    "href": "https://contracts.ocp.dc.gov/purchase/search"
+   },
+   {
+    "label": "Dataset on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/dc-procurement"
+   }
+  ],
+  "related": [
+   {
+    "label": "Other orders to this supplier",
+    "cols": [
+     "supplier"
+    ],
+    "title": "{po_number}",
+    "sub": "{agency} · {ordered_date}",
+    "limit": 8,
+    "lazy": true,
+    "button": "Find other orders to this supplier"
+   }
+  ]
+ }
+}
