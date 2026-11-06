@@ -1316,6 +1316,13 @@ function pivotCellText(measure, v) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+// Group names as the rest of the page shows them: Yes/No for true/false, plain words for codes.
+function pivotLabel(c, v) {
+  if (c.type === 'bool') return v === 'true' ? 'Yes' : v === 'false' ? 'No' : v;
+  if (c.format === 'code') return humanCode(v, c);
+  return v;
+}
+
 function renderPivot() {
   const { rows, measure, rowCol, colCol } = pivotCells;
   const box = el('pvresult');
@@ -1325,8 +1332,8 @@ function renderPivot() {
   const cell = new Map();
   let grand = 0;
   for (const r of rows) {
-    const rl = r.r === null ? blank : r.r;
-    const cl = colCol ? (r.c === null ? blank : r.c) : '';
+    const rl = r.r === null ? blank : pivotLabel(rowCol, r.r);
+    const cl = colCol ? (r.c === null ? blank : pivotLabel(colCol, r.c)) : '';
     const v = Number(r.m);
     rowTotals.set(rl, (rowTotals.get(rl) || 0) + v);
     colTotals.set(cl, (colTotals.get(cl) || 0) + v);

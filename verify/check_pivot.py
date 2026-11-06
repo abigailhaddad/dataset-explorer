@@ -32,13 +32,13 @@ def cells(sql):
 # EEOC
 D=f"read_parquet('{H}abigailhaddad/eeoc-appellate-decisions/resolve/main/extracted/decisions.parquet')"
 pv=json.load(open('verify/pv_eeoc.json'))
-compare('eeoc',pv['eeoc']['pivot'],cells(f"select agency, cast(discrimination_found as varchar), count(*) from {D} group by 1,2"))
-compare('eeoc+filter',pv['eeoc+f']['pivot'],cells(f"select agency, cast(discrimination_found as varchar), count(*) from {D} where agency in ('United States Postal Service','Department of Veterans Affairs') group by 1,2"))
+compare('eeoc',pv['eeoc']['pivot'],cells(f"select agency, case when discrimination_found then 'Yes' else 'No' end, count(*) from {D} group by 1,2"))
+compare('eeoc+filter',pv['eeoc+f']['pivot'],cells(f"select agency, case when discrimination_found then 'Yes' else 'No' end, count(*) from {D} where agency in ('United States Postal Service','Department of Veterans Affairs') group by 1,2"))
 # listing
 L=f"read_parquet('{H}abigailhaddad/eeoc-appellate-decisions/resolve/main/listing.parquet')"
 pv=json.load(open('verify/pv_listing.json'))
 Y="nullif(substr(posted_folder_date,1,4),'')"
-compare('listing',pv['listing']['pivot'],cells(f"select {Y}, ext, count(*) from {L} group by 1,2"))
+compare('listing',pv['listing']['pivot'],cells(f"select {Y}, nullif(ext,''), count(*) from {L} group by 1,2"))
 compare('listing+filter',pv['listing+f']['pivot'],cells(f"select {Y}, ext, count(*) from {L} where ext in ('.pdf','.txt') group by 1,2"))
 # cba
 A=f"read_csv('{H}abigailhaddad/opm-cba-agreements/resolve/main/agreements.csv',header=true,all_varchar=true)"
@@ -50,7 +50,7 @@ compare('cba+filter (pages sum)',pv['cba+f']['pivot'],cells(f"select laborUnionN
 B=f"{H}abigailhaddad/federal-ja-documents/resolve/main/"
 J=f"read_parquet('{B}data/notices.parquet') n left join read_parquet('{B}analysis/extractions.parquet') x on n.notice_id=x.notice_id"
 pv=json.load(open('verify/pv_ja.json'))
-compare('ja (distinct matched awards by agency x matched)',pv['ja']['pivot'],cells(f"select n.agency, cast(n.usaspending_matched as varchar), count(distinct n.usaspending_award_key) from {J} group by 1,2"),tol=0)
+compare('ja (distinct matched awards by agency x matched)',pv['ja']['pivot'],cells(f"select n.agency, case when n.usaspending_matched then 'Yes' else 'No' end, count(distinct n.usaspending_award_key) from {J} group by 1,2"),tol=0)
 compare('ja+filter (stated by authority)',pv['ja+f']['pivot'],cells(f"select x.authority_plain, sum(x.estimated_value_usd) from {J} where n.agency='VETERANS AFFAIRS, DEPARTMENT OF' group by 1"),tol=1)
 # dod
 base=f"{H}abigailhaddad/dod-daily-contracts/resolve/main/data/"
