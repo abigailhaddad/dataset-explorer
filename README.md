@@ -81,7 +81,7 @@ Blank labels are left out of the bars and counted in a note under the chart. Set
 | `text` | `[{ "label", "column" }]`: long text in a readable block with a Copy button. |
 | `links` | `[{ "label", "href", "showIf": { "col", "equals" } }]`: shown in a "Source" card. |
 | `related` | `[{ "label", "cols": [...], "title", "sub", "limit", "lazy", "button" }]`: other rows with the same value in all of `cols`, with links to their own record pages. `"lazy": true` waits for a click (with `button` as its text), for a table too big to scan on every record. |
-| `more` | Extra tables loaded on request, for large files (the J&A attachments). |
+| `more` | Extra tables loaded on request, for large files: `{ "id", "label", "button", "hint", "url", "where", "value", "columns", "limit", "skipWhenZero" }`. Rows whose `where` column equals the record's `value` column are shown as items (the first column is the heading). A column can set `type` (`date`, `number`) and `format` for the table's display, or `link: true` to show an "Open" link to its value. `limit` defaults to 200, with a note when there are more. `skipWhenZero` names a count column: with zero, no button. Used for the J&A attachments and for a DC contract's documents and payments. |
 | `outline` | An ordered list of questions for one record, read from a questions file when the record opens: `{ "label", "discover", "where", "value", "columns": { block, section, kind, ordinal, number, text, type, options, trailing, id }, "intros": { discover, block, text }, "link", "empty" }`. `discover` is `{ hfDataset, path }`; `where` is the column in that file that matches the record's `value` column; `link` is the dataset id that question ids open in; `empty` is the message when nothing is stored. Used for questionnaires. |
 
 Templates use `{column}` for the value and `{column:enc}` for a URL-encoded one. Links must be http or https, and an empty link is dropped. The page checks the config on load and stops with a plain message if a column is missing from the file or a template names an unknown column.
@@ -97,6 +97,7 @@ The same engine can run as a site for one dataset. `python3 scripts/build_sites.
 | `sf133-budget-execution` | SF-133 budget execution |
 | `usajobs-questionnaires` | USAJOBS questionnaires (opens first), USAJOBS questions |
 | `federal-ja-documents` | J&A documents |
+| `dc-procurement` | DC contracts (opens first), DC purchase orders, DC payments, DC solicitations |
 
 In a site folder, `?d=` is optional: the default table opens without it, and `?d=<id>` still picks another table of the same site. The heading, tab title, favicon letters and subtitle are the site's own. The nav lists only that site's tables (it is hidden when there is one), and an unknown `?d=` lists only those tables. The footer links to the dataset on Hugging Face, the code and "More datasets". That last link is the constant `MORE_DATASETS_URL` in `scripts/build_sites.py`, a placeholder until the adoption page has an address.
 
@@ -109,6 +110,8 @@ Any static host works: upload the folder as is (the repo root for the combined e
 ## Limits
 
 - First open downloads the database engine, then reads the table's metadata. Measured on a fast connection: EEOC decisions 2.3 s, DoD (3 files) 4.2 s, SF-133 accounts 6 s, USAJOBS questionnaires 12 s, J&A and the EEOC listing a few seconds. The USAJOBS questions table (949,370 rows) is read into memory once, about 13 s the first time and 7 to 9 s for each later page load. The same DoD table as 87 small files took 37 s, so fewer, larger files matter.
+- DC procurement, measured on a fast connection: contracts 2.3 s, purchase orders 3.5 s, solicitations 2.4 s, payments 5.7 s (885,916 rows, 26 MB, read into memory once). A contract's payments load on a click and show the first 200 lines.
+- DC contract amounts: a row is one option period, so the views add up `base_amount`, never `amount`. Payments add up `voucher_amount`, never `check_total`.
 - SF-133 amounts are summed over the rows shown. A row is one account in one fiscal year, so pick a fiscal year before reading a total.
 - Pick-list counts cover the whole table, not the current filters.
 - Hugging Face can throttle many fast requests (HTTP 429). The page says so. We did not see it in testing.
@@ -121,8 +124,9 @@ Stat cards, chart tables, pivot tables, record pages and related counts were com
 ## Deploying
 
 Each dataset site is its own Cloudflare Pages project, named after its slug (`eeoc-decisions`,
-`opm-union-contracts`, `sf133-budget-execution`, `usajobs-questionnaires`, `federal-ja-documents`).
-`.github/workflows/deploy-sites.yml` builds `dist-sites/` and deploys all five whenever the engine
+`opm-union-contracts`, `sf133-budget-execution`, `usajobs-questionnaires`, `federal-ja-documents`,
+`dc-procurement`).
+`.github/workflows/deploy-sites.yml` builds `dist-sites/` and deploys all six whenever the engine
 (`index.html`, `app.js`, `style.css`), a config or `scripts/build_sites.py` changes on `main`. It needs two
 repository secrets: `CLOUDFLARE_API_TOKEN` (Account > Cloudflare Pages > Edit) and `CLOUDFLARE_ACCOUNT_ID`.
 Without them the run builds the sites and skips the deploy with a notice. The data is read from Hugging

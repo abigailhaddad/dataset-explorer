@@ -42,6 +42,9 @@ SITES = [
     {'slug': 'federal-ja-documents', 'title': 'Federal J&A documents', 'default': 'federal-ja',
      'datasets': ['federal-ja'], 'hf': 'abigailhaddad/federal-ja-documents',
      'repo': 'abigailhaddad/federal-ja-documents', 'favicon': 'JA'},
+    {'slug': 'dc-procurement', 'title': 'DC procurement', 'default': 'dc-contracts',
+     'datasets': ['dc-contracts', 'dc-purchase-orders', 'dc-payments', 'dc-solicitations'],
+     'hf': 'abigailhaddad/dc-procurement', 'repo': 'abigailhaddad/dc-software-procurement', 'favicon': 'DC'},
 ]
 
 

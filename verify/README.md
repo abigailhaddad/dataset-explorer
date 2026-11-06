@@ -70,3 +70,26 @@ Things the checks found:
 Not checked: Firefox and Safari; source links for every row (the OMB and Hugging Face links were not fetched); hover tooltips.
 
 Per-site folders (`dist-sites/<slug>/`, from `scripts/build_sites.py`): run one site at a time (`python3 verify/check_sites.py <slug> 1280` or `390`) with the folders served on ports 8801 to 8805 in the order eeoc-decisions, opm-union-contracts, sf133-budget-execution, usajobs-questionnaires, federal-ja-documents, and the combined explorer on 8790. The J&A front page showed 20,019 notices on this run; the dataset updates daily, so the number moves.
+
+## 2026-11-06: DC procurement
+
+Checked against DuckDB (Python) reading the published tables at `abigailhaddad/dc-procurement`, with and without a filter. The site folder (`dist-sites/dc-procurement`) was served on its own port at its own root.
+
+| What | Script | Checks | Mismatches |
+|---|---|---|---|
+| Contracts: Contracts, By agency, By vendor, Over time, How awarded (no filter, start fiscal year 2025, agency contains Behavioral) and Solicitations: Solicitations, By agency, Over time (no filter, open only, agency contains Education) | `check_dc.py contracts sol` | 90 | 2 (below) |
+| Purchase orders (Purchase orders, By agency, By supplier, Over time, By commodity) and Payments (Payments, By agency, By vendor, Over time), each with no filter, fiscal year 2025 and agency contains Education | `check_dc.py po payments` | 75 | 0 |
+| Pivots, 8 (two per table: totals, counts, a two-way count) | `check_dc_pivot.py` | 12 | 1 (below) |
+| Record pages, 3 to 4 rows per table (every field, title, subtitle, source links), edge cases included: a null agency, a restored contract, a corrected amount, a -V2 purchase order, a negative payment, a payment key shared by two lines, an open and an archived solicitation | `reccheck.py` with the keys in `keys_dc.json` | contracts 92, purchase orders 39, payments 60, solicitations 44 | 0 |
+| First open time and phone width, each table | `dc_loadtimes.py` | contracts 2.3 s, purchase orders 3.5 s, solicitations 2.4 s, payments 5.7 s; no sideways scroll at 1280 or 390 px | 0 |
+
+Also clicked through by hand: a contract record's documents (9 for CW100042, each "Open" link points at the portal's attachment address), and its payments (7 lines for CW49341, equal to the table's count; the first 200 of 11,727 for CW95481 with the "Showing the first 200" note).
+
+Check artifacts, not page errors:
+
+- Two contract checks differ by a tenth of a million: an agency's base total is exactly $950,000, which the page shows as `$1M` (rounds the tie up) and Python prints as `$0.9M`.
+- The pivot's top five includes a `(blank)` row ($538.5M of base-period amounts with no agency), which the check's expected list left out. The charts leave blanks out and say so under the chart.
+
+Things the checks found and fixed: a missing key column in the contracts config; the record "load more" block showed dates as numbers and amounts unformatted, so it now reads dates as text and takes `type` and `format` from the column (also added `link` and `limit`); a contract with no documents showed a "Load documents" button, so it now uses `skipWhenZero`.
+
+Not checked: Firefox and Safari; the portal's per-contract pages beyond a 200 from a plain request (the portal is a single-page app that answers 200 for any path, so a 200 does not prove the page shows that contract); hover tooltips; the payments table's CSV export over 250,000 rows (the page refuses and says to filter).

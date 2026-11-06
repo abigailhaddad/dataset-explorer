@@ -1,0 +1,271 @@
+{
+ "id": "dc-solicitations",
+ "title": "DC solicitations",
+ "blurb": "Open and archived solicitations from DC’s procurement portal.",
+ "hfDataset": "abigailhaddad/dc-procurement",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/dc-procurement/resolve/main/data/solicitations.parquet"
+  ]
+ },
+ "key": "sol_key",
+ "covers": "One row per solicitation, open or archived. An unofficial copy of what contracts.ocp.dc.gov publishes, pulled weekly.",
+ "caveats": [
+  "DC’s portal doesn’t link a solicitation to the contract it became.",
+  "The same solicitation number can appear in two archive years.",
+  "The portal’s own terms were not found. Its data.gov listing says CC BY 4.0. Check before reuse and credit DC’s Office of Contracting and Procurement."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/dc-procurement"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/dc-software-procurement"
+  },
+  {
+   "label": "DC’s solicitations page",
+   "href": "https://contracts.ocp.dc.gov/solicitations/search"
+  }
+ ],
+ "searchColumns": [
+  "title",
+  "solicitation_number",
+  "agency",
+  "specialist"
+ ],
+ "defaultSort": {
+  "col": "closing_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "sol_key",
+   "label": "Row id",
+   "type": "text",
+   "show": false,
+   "expr": "solicitation_number || '|' || coalesce(CAST(fiscal_year AS VARCHAR), 'open')"
+  },
+  {
+   "key": "title",
+   "label": "Title",
+   "type": "text"
+  },
+  {
+   "key": "solicitation_number",
+   "label": "Number",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "As DC’s portal names it; abbreviated and variant names are mapped to one name."
+  },
+  {
+   "key": "closing_date",
+   "label": "Closes",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "is_open",
+   "label": "Open",
+   "type": "bool",
+   "filter": "select",
+   "help": "True when DC’s site returned it as open on the latest pull; false when it came from the archive of closed ones."
+  },
+  {
+   "key": "market_type",
+   "label": "Market type",
+   "type": "text",
+   "filter": "select",
+   "help": "As typed by the District; spellings vary."
+  },
+  {
+   "key": "fiscal_year",
+   "label": "Archive year",
+   "type": "text",
+   "filter": "select",
+   "help": "The fiscal year DC’s site filed a closed solicitation under. Empty for open ones."
+  },
+  {
+   "key": "specialist",
+   "label": "Specialist",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "show": false,
+   "help": "The contract specialist DC’s site names for questions."
+  },
+  {
+   "key": "closing_time",
+   "label": "Closing time",
+   "type": "text",
+   "show": false
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
+   "label": "Solicitations",
+   "subtitle": "Open and closed.",
+   "stats": [
+    {
+     "label": "Solicitations",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Open now",
+     "expr": "count(*) FILTER (WHERE is_open)"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top agencies",
+     "label": "agency",
+     "value": "count(*)",
+     "unit": "solicitations",
+     "limit": 12
+    },
+    {
+     "type": "year",
+     "title": "Solicitations by closing year",
+     "label": "strftime(closing_date, '%Y')",
+     "value": "count(*)",
+     "unit": "solicitations"
+    }
+   ]
+  },
+  {
+   "id": "agencies",
+   "label": "By agency",
+   "subtitle": "Who posts the most.",
+   "stats": [
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Solicitations",
+     "label": "agency",
+     "value": "count(*)",
+     "unit": "solicitations",
+     "limit": 20,
+     "wide": true
+    },
+    {
+     "type": "top",
+     "title": "Market type",
+     "label": "market_type",
+     "value": "count(*)",
+     "unit": "solicitations",
+     "limit": 12
+    }
+   ]
+  },
+  {
+   "id": "time",
+   "label": "Over time",
+   "subtitle": "When solicitations close.",
+   "stats": [
+    {
+     "label": "Solicitations",
+     "expr": "count(*)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "By closing year",
+     "label": "strftime(closing_date, '%Y')",
+     "value": "count(*)",
+     "unit": "solicitations"
+    },
+    {
+     "type": "month",
+     "title": "By closing month",
+     "label": "strftime(closing_date, '%Y-%m')",
+     "value": "count(*)",
+     "unit": "solicitations"
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "market_type",
+   "fiscal_year",
+   "is_open",
+   "specialist"
+  ],
+  "measures": []
+ },
+ "record": {
+  "key": "sol_key",
+  "title": "{title}",
+  "subtitle": "{solicitation_number} · {agency}",
+  "sections": [
+   {
+    "title": "Solicitation",
+    "columns": [
+     "solicitation_number",
+     "agency",
+     "market_type",
+     "specialist"
+    ]
+   },
+   {
+    "title": "Dates",
+    "columns": [
+     "closing_date",
+     "closing_time",
+     "fiscal_year",
+     "is_open"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "Solicitations on DC’s site",
+    "href": "https://contracts.ocp.dc.gov/solicitations/search"
+   },
+   {
+    "label": "Dataset on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/dc-procurement"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same agency, same market type",
+    "cols": [
+     "agency",
+     "market_type"
+    ],
+    "title": "{title}",
+    "sub": "{solicitation_number} · {closing_date}",
+    "limit": 8,
+    "lazy": true,
+    "button": "Find similar solicitations"
+   }
+  ]
+ }
+}

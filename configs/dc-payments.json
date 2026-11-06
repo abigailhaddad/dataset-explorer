@@ -1,0 +1,389 @@
+{
+ "id": "dc-payments",
+ "title": "DC payments",
+ "blurb": "Payment lines from DC’s procurement portal.",
+ "hfDataset": "abigailhaddad/dc-procurement",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/dc-procurement/resolve/main/data/payments.parquet"
+  ],
+  "materialize": true
+ },
+ "key": "line_key",
+ "covers": "One row per voucher line. An unofficial copy of what contracts.ocp.dc.gov publishes, pulled weekly.",
+ "caveats": [
+  "Most payments carry no contract number, so they can’t be tied to a contract here.",
+  "Add up Voucher amount. The check total repeats on every line a check covers, so adding it up counts payments about 3.5 times.",
+  "Vendor names are often cut off at a fixed length, as DC gives them."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/dc-procurement"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/dc-software-procurement"
+  },
+  {
+   "label": "DC’s payments page",
+   "href": "https://contracts.ocp.dc.gov/payments/search"
+  }
+ ],
+ "searchColumns": [
+  "vendor",
+  "agency",
+  "contract_number",
+  "po_number",
+  "voucher_number"
+ ],
+ "defaultSort": {
+  "col": "payment_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "line_key",
+   "label": "Line id",
+   "type": "text",
+   "show": false,
+   "expr": "id || '|' || coalesce(voucher_number, '') || '|' || coalesce(po_number, '') || '|' || coalesce(contract_number, '') || '|' || coalesce(CAST(voucher_amount AS VARCHAR), '') || '|' || coalesce(CAST(payment_date AS VARCHAR), '')"
+  },
+  {
+   "key": "payment_date",
+   "label": "Paid",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "vendor",
+   "label": "Vendor",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "As DC gives it; often cut off."
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "As DC’s portal names it; abbreviated and variant names are mapped to one name."
+  },
+  {
+   "key": "voucher_amount",
+   "label": "Amount",
+   "type": "number",
+   "format": "currency",
+   "filter": "range",
+   "help": "This line’s amount in dollars. Add this one up."
+  },
+  {
+   "key": "contract_number",
+   "label": "Contract",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "Empty on most lines."
+  },
+  {
+   "key": "po_number",
+   "label": "Purchase order",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "voucher_number",
+   "label": "Voucher",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "fiscal_year",
+   "label": "Fiscal year",
+   "type": "text",
+   "filter": "select",
+   "help": "District fiscal year (1 October to 30 September) of the payment date."
+  },
+  {
+   "key": "has_contract",
+   "label": "Has contract number",
+   "type": "bool",
+   "filter": "select",
+   "show": false,
+   "expr": "contract_number IS NOT NULL AND contract_number <> ''"
+  },
+  {
+   "key": "check_total",
+   "label": "Check total",
+   "type": "number",
+   "format": "currency",
+   "show": false,
+   "help": "The whole check or transfer, repeated on every line it covers. Do not add this up."
+  },
+  {
+   "key": "payment_number",
+   "label": "Payment number",
+   "type": "text",
+   "show": false,
+   "help": "As published; masked by DC’s site."
+  },
+  {
+   "key": "id",
+   "label": "DC line id",
+   "type": "text",
+   "show": false,
+   "help": "Not unique: several lines can share one."
+  },
+  {
+   "key": "listed",
+   "label": "On DC’s site now",
+   "type": "bool",
+   "filter": "select",
+   "show": false
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
+   "label": "Payments",
+   "subtitle": "Every payment line DC lists.",
+   "stats": [
+    {
+     "label": "Lines",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Paid",
+     "expr": "sum(voucher_amount)",
+     "format": "billions",
+     "hint": "Voucher amounts added up over the rows shown."
+    },
+    {
+     "label": "Vendors",
+     "expr": "count(DISTINCT vendor)"
+    },
+    {
+     "label": "With contract",
+     "expr": "100.0 * count(*) FILTER (WHERE has_contract) / nullif(count(*), 0)",
+     "format": "percent",
+     "hint": "Share of lines that carry a contract number."
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top vendors, amount",
+     "label": "vendor",
+     "value": "sum(voucher_amount)",
+     "unit": "paid",
+     "format": "millions",
+     "limit": 12,
+     "wide": true
+    },
+    {
+     "type": "year",
+     "title": "Paid by fiscal year",
+     "label": "CAST(fiscal_year AS VARCHAR)",
+     "value": "sum(voucher_amount)",
+     "unit": "paid",
+     "format": "billions"
+    }
+   ]
+  },
+  {
+   "id": "agencies",
+   "label": "By agency",
+   "subtitle": "Who pays the most.",
+   "stats": [
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Paid",
+     "expr": "sum(voucher_amount)",
+     "format": "billions"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Paid",
+     "label": "agency",
+     "value": "sum(voucher_amount)",
+     "unit": "paid",
+     "format": "millions",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Lines",
+     "label": "agency",
+     "value": "count(*)",
+     "unit": "lines",
+     "limit": 15
+    }
+   ]
+  },
+  {
+   "id": "vendors",
+   "label": "By vendor",
+   "subtitle": "Who is paid the most.",
+   "stats": [
+    {
+     "label": "Vendors",
+     "expr": "count(DISTINCT vendor)"
+    },
+    {
+     "label": "Paid",
+     "expr": "sum(voucher_amount)",
+     "format": "billions"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Paid",
+     "label": "vendor",
+     "value": "sum(voucher_amount)",
+     "unit": "paid",
+     "format": "millions",
+     "limit": 20,
+     "wide": true
+    },
+    {
+     "type": "top",
+     "title": "Lines",
+     "label": "vendor",
+     "value": "count(*)",
+     "unit": "lines",
+     "limit": 20,
+     "wide": true
+    }
+   ]
+  },
+  {
+   "id": "time",
+   "label": "Over time",
+   "subtitle": "Payments by year and month.",
+   "stats": [
+    {
+     "label": "Lines",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Paid",
+     "expr": "sum(voucher_amount)",
+     "format": "billions"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Paid by fiscal year",
+     "label": "CAST(fiscal_year AS VARCHAR)",
+     "value": "sum(voucher_amount)",
+     "unit": "paid",
+     "format": "billions"
+    },
+    {
+     "type": "month",
+     "title": "Paid by month",
+     "label": "strftime(payment_date, '%Y-%m')",
+     "value": "sum(voucher_amount)",
+     "unit": "paid",
+     "format": "millions"
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "vendor",
+   "fiscal_year",
+   "has_contract"
+  ],
+  "measures": [
+   {
+    "id": "paid",
+    "label": "Amount (sum)",
+    "expr": "sum(voucher_amount)",
+    "format": "millions"
+   }
+  ]
+ },
+ "record": {
+  "key": "line_key",
+  "title": "{vendor}",
+  "subtitle": "{agency} · {payment_date}",
+  "sections": [
+   {
+    "title": "Payment",
+    "columns": [
+     "payment_date",
+     "voucher_amount",
+     "vendor",
+     "agency",
+     "fiscal_year"
+    ]
+   },
+   {
+    "title": "What it links to",
+    "columns": [
+     "contract_number",
+     "po_number",
+     "voucher_number"
+    ]
+   },
+   {
+    "title": "Check",
+    "columns": [
+     "check_total",
+     "payment_number",
+     "id",
+     "listed"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "Payments on DC’s site",
+    "href": "https://contracts.ocp.dc.gov/payments/search"
+   },
+   {
+    "label": "Dataset on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/dc-procurement"
+   }
+  ],
+  "related": [
+   {
+    "label": "Other lines on this payment",
+    "cols": [
+     "id"
+    ],
+    "title": "{vendor}",
+    "sub": "{voucher_amount} · voucher {voucher_number}",
+    "limit": 8
+   },
+   {
+    "label": "Other payments on this contract",
+    "cols": [
+     "contract_number"
+    ],
+    "title": "{vendor}",
+    "sub": "{payment_date} · {voucher_amount}",
+    "limit": 8,
+    "lazy": true,
+    "button": "Find other payments on this contract"
+   }
+  ]
+ }
+}

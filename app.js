@@ -22,6 +22,7 @@ import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0
 const BLANK = '__blank__';
 const EXPORT_LIMIT = 250000;
 const FACET_LIMIT = 500;
+const MORE_LIMIT = 200; // rows a record's "load more" block shows unless the config sets a limit
 const SUGGEST_LIMIT = 200; // values offered by a text filter marked suggest
 const NARROW_MIN = 10; // show the "Narrow the list" box only above this many options
 const CHART_GROUP_LIMIT = 20000;
@@ -1727,19 +1728,35 @@ function moreBlock(spec, row) {
     try {
       const name = 'more_' + spec.id + '.parquet';
       await db.registerFileURL(name, spec.url, duckdb.DuckDBDataProtocol.HTTP, false);
-      const cols = spec.columns.map((c) => qi(c.key)).concat(spec.text ? [qi(spec.text)] : []);
+      // Dates come back as numbers from the engine: read them as text. Columns with a type or format are shown like the table's.
+      const cols = spec.columns.map((c) => (c.type === 'date' ? 'CAST(' + qi(c.key) + ' AS VARCHAR) AS ' + qi(c.key) : qi(c.key))).concat(spec.text ? [qi(spec.text)] : []);
+      const shown = (c, v) => (v === null || v === undefined || v === '' ? '' : c.type || c.format ? formatValue(c, v) : String(v));
+      const limit = spec.limit || MORE_LIMIT;
       const rows = await runQuery(
-        'SELECT ' + cols.join(', ') + " FROM read_parquet('" + name + "') WHERE CAST(" + qi(spec.where) + ' AS VARCHAR) = ? ORDER BY 1',
+        'SELECT ' + cols.join(', ') + " FROM read_parquet('" + name + "') WHERE CAST(" + qi(spec.where) + ' AS VARCHAR) = ? ORDER BY 1 LIMIT ' + (limit + 1),
         [String(row[spec.value || config.key])]
       );
       out.replaceChildren();
       if (!rows.length) out.append(h('p', 'summary', 'Nothing found.'));
+      if (rows.length > limit) {
+        rows.length = limit;
+        out.append(h('p', 'summary', 'Showing the first ' + limit + '.'));
+      }
       for (const r of rows) {
         const item = h('div', 'more-item');
-        item.append(h('h3', '', String(r[spec.columns[0].key] === null ? '' : r[spec.columns[0].key])));
+        item.append(h('h3', '', shown(spec.columns[0], r[spec.columns[0].key])));
         const dl = h('dl', 'fields');
         for (const c of spec.columns.slice(1)) {
-          const dd = h('dd', r[c.key] === null || r[c.key] === '' ? 'empty' : '', r[c.key] === null || r[c.key] === '' ? '—' : String(r[c.key]));
+          const blank = r[c.key] === null || r[c.key] === '';
+          const dd = h('dd', blank ? 'empty' : '', blank ? '—' : shown(c, r[c.key]));
+          const href = c.link && !blank ? safeHref(String(r[c.key])) : null;
+          if (href) {
+            const a = h('a', '', 'Open');
+            a.href = href;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            dd.replaceChildren(a);
+          }
           dl.append(h('dt', '', c.label), dd);
         }
         item.append(dl);
