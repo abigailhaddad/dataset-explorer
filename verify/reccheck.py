@@ -35,6 +35,10 @@ def fmtv(col,v):
     if v is None or v=='': return '—'
     t=col['type']
     if t=='bool': return 'Yes' if v else 'No'
+    if col.get('format')=='code':
+        vl=col.get('valueLabels',{})
+        if str(v) in vl: return vl[str(v)]
+        w=str(v).replace('_',' '); return w[:1].upper()+w[1:]
     if t=='number':
         if col.get('format')=='currency': return '$'+f"{v:,.0f}"
         s=f"{v:,.2f}".rstrip('0').rstrip('.')
@@ -98,6 +102,7 @@ with sync_playwright() as p:
             h=tpl(l['href'])
             if h: exp_links.append((l['label'],h))
         gl=[(a,h.replace('%20',' ')) for a,h in (src[0]['links'] if src else [])]
+        exp_links=[(a,h.replace('%20',' ')) for a,h in exp_links]  # the source data may hold the URL with or without %20
         total+=1; ok=gl==exp_links; bad+=0 if ok else 1
         print(('OK  ' if ok else 'BAD ')+'source links', gl if not ok else len(gl), '' if ok else 'expected %s'%exp_links)
         rel=[x for x in got['cards'] if x['title']=='Related']
