@@ -117,3 +117,13 @@ Any static host works: upload the folder as is (the repo root for the combined e
 ## Checked
 
 Stat cards, chart tables, pivot tables, record pages and related counts were compared with an independent DuckDB (Python) read of the same files, with and without a filter. The scripts, the sample rows, what matched and what the first checks got wrong are in `verify/README.md`. Screenshots are in `screenshots/`. There is no automated test suite.
+
+## Deploying
+
+Each dataset site is its own Cloudflare Pages project, named after its slug (`eeoc-decisions`,
+`opm-union-contracts`, `sf133-budget-execution`, `usajobs-questionnaires`, `federal-ja-documents`).
+`.github/workflows/deploy-sites.yml` builds `dist-sites/` and deploys all five whenever the engine
+(`index.html`, `app.js`, `style.css`), a config or `scripts/build_sites.py` changes on `main`. It needs two
+repository secrets: `CLOUDFLARE_API_TOKEN` (Account > Cloudflare Pages > Edit) and `CLOUDFLARE_ACCOUNT_ID`.
+Without them the run builds the sites and skips the deploy with a notice. The data is read from Hugging
+Face when a page loads, so the sites never need a data refresh.
