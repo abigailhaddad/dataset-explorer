@@ -89,6 +89,8 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+/* The hidden attribute must win over any display rule (the option list's `display: flex` was overriding it). */
+[hidden] { display: none !important; }
 body {
   margin: 0;
   background: var(--color-bg);
