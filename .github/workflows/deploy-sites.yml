@@ -1,0 +1,84 @@
+name: Deploy the dataset sites to Cloudflare Pages
+
+# Each dataset has its own site (scripts/build_sites.py writes one folder per site into dist-sites/),
+# and each site is its own Cloudflare Pages project named after its slug. The sites read their data
+# from Hugging Face when the page loads, so they never need a data refresh: this only runs when the
+# site code or a config changes.
+#
+# Secrets: CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages > Edit) and CLOUDFLARE_ACCOUNT_ID.
+# Without both, the run builds the sites and says it did not deploy them.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "app.js"
+      - "style.css"
+      - "configs/**"
+      - "scripts/build_sites.py"
+      - ".github/workflows/deploy-sites.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-sites
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the per-dataset site folders
+        run: python3 scripts/build_sites.py
+      - name: Check every site folder has its files
+        run: |
+          for d in dist-sites/*/; do
+            for f in index.html app.js style.css site.json; do
+              test -s "$d$f" || { echo "::error::$d$f is missing or empty"; exit 1; }
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-sites
+          path: dist-sites
+          retention-days: 3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        site:
+          - eeoc-decisions
+          - opm-union-contracts
+          - sf133-budget-execution
+          - usajobs-questionnaires
+          - federal-ja-documents
+    env:
+      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-sites
+          path: dist-sites
+      - name: Skip when the Cloudflare secrets are not set
+        if: ${{ env.HAS_CF != 'true' }}
+        run: echo "::notice::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not set, so ${{ matrix.site }} was not deployed."
+      - name: Deploy ${{ matrix.site }}
+        if: ${{ env.HAS_CF == 'true' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.42.0"
+          command: pages deploy dist-sites/${{ matrix.site }} --project-name=${{ matrix.site }} --branch=main --commit-dirty=true
