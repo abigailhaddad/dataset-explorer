@@ -75,6 +75,7 @@ def build(site):
     page = re.sub(r'<link rel="icon" href="[^"]+">', '<link rel="icon" href="%s">' % favicon(site['favicon']), page, count=1)
     page = replace_once(page, '<h1 id="title">Dataset Explorer</h1>', '<h1 id="title">%s</h1>' % t)
     page = replace_once(page, 'Public records, read from Hugging Face.', html.escape(default_entry['blurb']))
+    page = replace_once(page, '<body>', '<body data-site="1">')
     open(os.path.join(out, 'index.html'), 'w').write(page)
 
     ids = set(site['datasets'])

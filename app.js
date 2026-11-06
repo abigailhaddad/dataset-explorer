@@ -2261,6 +2261,7 @@ function renderHeader() {
 // its default dataset (opened with no ?d=), the datasets it holds and the footer links.
 let site = null;
 async function loadSite() {
+  if (!document.body.dataset.site) return; // only a built site folder has a site.json
   try {
     const r = await fetch('site.json');
     site = r.ok ? await r.json() : null;

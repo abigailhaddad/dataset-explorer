@@ -57,6 +57,7 @@ Checked against DuckDB (Python) reading the same published files, with and witho
 | Pivots, 6 (2 per dataset) | `check_pivot_new.py` | 18 | 0 |
 | Record pages, 5 rows per dataset (every field, title, subtitle, text, source links) | `reccheck.py` with `keys_new.json` | SF-133 110, questionnaires 115, questions 75 | 0 |
 | Questionnaire outline (5 questionnaires: questions, order, options, section headings) and the lazy "same wording" count | `check_outline.py` | 24 | 0 |
+| Each per-site folder served at its own root (front page with no `?d=`, heading, tab title, favicon letters, nav, footer links, record page and back link, explicit and unknown `?d=`, second table, no sideways scroll; front-page numbers equal the combined explorer's) | `check_sites.py` | desktop 74, phone (390 px) 65 | 0 |
 
 Things the checks found:
 
@@ -67,3 +68,5 @@ Things the checks found:
 - Check artifacts, not page errors: a currency amount ending in .50 rounds up in the page and to even in Python; Python printed `3.0` for a number the page prints as `3`; the page treats an empty string as blank, so one empty question text is not counted as a distinct wording (156,120 on the page, 156,121 with the empty string).
 
 Not checked: Firefox and Safari; source links for every row (the OMB and Hugging Face links were not fetched); hover tooltips.
+
+Per-site folders (`dist-sites/<slug>/`, from `scripts/build_sites.py`): run one site at a time (`python3 verify/check_sites.py <slug> 1280` or `390`) with the folders served on ports 8801 to 8805 in the order eeoc-decisions, opm-union-contracts, sf133-budget-execution, usajobs-questionnaires, federal-ja-documents, and the combined explorer on 8790. The J&A front page showed 20,019 notices on this run; the dataset updates daily, so the number moves.

@@ -32,13 +32,16 @@ def combined_stats(pg, ds):
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=EXE)
-    for width in (1280, 390):
+    widths = [int(w) for w in sys.argv[2].split(',')] if len(sys.argv) > 2 else [1280, 390]
+    only = sys.argv[1].split(',') if len(sys.argv) > 1 and sys.argv[1] != 'all' else None
+    for width in widths:
         pg = b.new_page(viewport={'width': width, 'height': 900})
         errs = []
         pg.on('console', lambda m: errs.append(m.text[:160]) if m.type == 'error' else None)
         pg.on('pageerror', lambda e: errs.append('pageerror ' + str(e)[:160]))
         tag = f'@{width}'
         for slug, port, ds, tables in SITES:
+            if only and slug not in only: continue
             base = f'http://127.0.0.1:{port}/'
             site = json.load(open(f'dist-sites/{slug}/site.json'))
             pg.goto(base); wait_list(pg)
