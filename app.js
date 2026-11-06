@@ -22,6 +22,7 @@ import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0
 const BLANK = '__blank__';
 const EXPORT_LIMIT = 250000;
 const FACET_LIMIT = 500;
+const NARROW_MIN = 10; // show the "Narrow the list" box only above this many options
 const CHART_GROUP_LIMIT = 20000;
 const PAGE_SIZES = [25, 50, 100, 200];
 const PIVOT_ROWS = 200;
@@ -814,7 +815,9 @@ function drawEditor() {
       opts.append(lab);
     }
     const note = h('p', 'summary', 'Counts cover the whole table.' + (facets[c.key].truncated ? ' Top ' + FACET_LIMIT + ' values shown.' : ''));
-    body.append(narrow, opts, note);
+    // A search box only helps when the list is long enough to need one.
+    if (facets[c.key].items.length > NARROW_MIN) body.append(narrow);
+    body.append(opts, note);
   } else if (c.filter === 'text') {
     const input = h('input');
     input.type = 'search';
