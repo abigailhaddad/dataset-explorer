@@ -42,31 +42,6 @@
   "dir": "asc"
  },
  "pageSize": 50,
- "detail": {
-  "title": "{agencyName}: {laborUnionName}",
-  "links": [
-   {
-    "label": "PDF on Hugging Face",
-    "href": "https://huggingface.co/datasets/abigailhaddad/opm-cba-agreements/resolve/main/pdfs/{id:enc}.pdf",
-    "showIf": {
-     "col": "download_status",
-     "equals": "ok"
-    }
-   },
-   {
-    "label": "Extracted text",
-    "href": "https://huggingface.co/datasets/abigailhaddad/opm-cba-agreements/resolve/main/text/{id:enc}.txt",
-    "showIf": {
-     "col": "download_status",
-     "equals": "ok"
-    }
-   },
-   {
-    "label": "File on OPM's site",
-    "href": "{fileUrl}"
-   }
-  ]
- },
  "columns": [
   {
    "key": "id",
@@ -119,8 +94,7 @@
   {
    "key": "fileName",
    "label": "File on OPM's site",
-   "type": "text",
-   "link": "{fileUrl}"
+   "type": "text"
   },
   {
    "key": "activityOfficeRegion",
@@ -247,46 +221,346 @@
    "label": "Termination sources",
    "type": "text",
    "show": false
+  },
+  {
+   "key": "flag_group",
+   "label": "Flag group",
+   "type": "text",
+   "show": false,
+   "filter": "select",
+   "expr": "CASE WHEN termination_flag IN ('confirmed', 'confirmed_secondary') THEN 'Confirmed' WHEN termination_flag = 'confirmed_then_reinstated' THEN 'Reinstated' WHEN termination_flag = 'inferred' THEN 'Inferred' WHEN termination_flag LIKE 'uncertain%' THEN 'Uncertain' WHEN termination_flag LIKE 'not_flagged%' THEN 'Not flagged' END",
+   "help": "Confirmed = confirmed or confirmed from press only. Uncertain = injunction or certification unclear. Not flagged = covered by no source or not named."
+  },
+  {
+   "key": "expiration_year",
+   "label": "Expiration year",
+   "type": "text",
+   "show": false,
+   "expr": "NULLIF(substr(CAST(expirationDate AS VARCHAR), 1, 4), '')"
   }
  ],
- "stats": [
+ "views": [
   {
+   "id": "table",
    "label": "Agreements",
-   "expr": "count(*)"
+   "subtitle": "Federal union contracts from OPM, with termination flags.",
+   "stats": [
+    {
+     "label": "Agreements",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agencyName)"
+    },
+    {
+     "label": "Unions",
+     "expr": "count(DISTINCT laborUnionName)"
+    },
+    {
+     "label": "Pages",
+     "expr": "sum(pages)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top agencies",
+     "label": "agencyName",
+     "unit": "agreements",
+     "limit": 12
+    },
+    {
+     "type": "top",
+     "title": "Termination flag",
+     "label": "termination_flag",
+     "unit": "agreements",
+     "limit": 12
+    },
+    {
+     "type": "year",
+     "title": "Expiring",
+     "label": "strftime(expirationDate, '%Y')",
+     "unit": "agreements"
+    }
+   ]
   },
   {
-   "label": "Agencies",
-   "expr": "count(DISTINCT agencyName)"
+   "id": "terminations",
+   "label": "Terminations",
+   "subtitle": "First-pass flags. Leads, not findings.",
+   "stats": [
+    {
+     "label": "Confirmed",
+     "expr": "count(*) FILTER (WHERE flag_group = 'Confirmed')",
+     "hint": "Confirmed by an agency document, court record or press."
+    },
+    {
+     "label": "Inferred",
+     "expr": "count(*) FILTER (WHERE flag_group = 'Inferred')"
+    },
+    {
+     "label": "Uncertain",
+     "expr": "count(*) FILTER (WHERE flag_group = 'Uncertain')"
+    },
+    {
+     "label": "Not flagged",
+     "expr": "count(*) FILTER (WHERE flag_group = 'Not flagged')"
+    },
+    {
+     "label": "Reinstated",
+     "expr": "count(*) FILTER (WHERE flag_group = 'Reinstated')",
+     "hint": "Terminated, then restored by a court."
+    }
+   ],
+   "charts": [
+    {
+     "type": "stack",
+     "title": "Flags by agency",
+     "x": "agencyName",
+     "series": "flag_group",
+     "kind": "category",
+     "limit": 10,
+     "seriesLimit": 5,
+     "unit": "agreements",
+     "seriesOrder": [
+      "Confirmed",
+      "Inferred",
+      "Uncertain",
+      "Not flagged",
+      "Reinstated"
+     ]
+    },
+    {
+     "type": "stack",
+     "title": "Flags by union",
+     "x": "laborUnionName",
+     "series": "flag_group",
+     "kind": "category",
+     "limit": 10,
+     "seriesLimit": 5,
+     "unit": "agreements",
+     "seriesOrder": [
+      "Confirmed",
+      "Inferred",
+      "Uncertain",
+      "Not flagged",
+      "Reinstated"
+     ]
+    }
+   ]
   },
   {
-   "label": "Unions",
-   "expr": "count(DISTINCT laborUnionName)"
+   "id": "expirations",
+   "label": "Expirations",
+   "subtitle": "When agreements run out.",
+   "stats": [
+    {
+     "label": "Agreements",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Expired",
+     "expr": "count(*) FILTER (WHERE expirationDate < current_date)",
+     "hint": "Expiration date is before today."
+    },
+    {
+     "label": "No date",
+     "expr": "count(*) FILTER (WHERE expirationDate IS NULL)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Expiring by year",
+     "label": "expiration_year",
+     "unit": "agreements"
+    },
+    {
+     "type": "stack",
+     "title": "Expiring, by flag",
+     "x": "expiration_year",
+     "series": "flag_group",
+     "kind": "year",
+     "seriesLimit": 5,
+     "unit": "agreements",
+     "seriesOrder": [
+      "Confirmed",
+      "Inferred",
+      "Uncertain",
+      "Not flagged",
+      "Reinstated"
+     ]
+    }
+   ]
   },
   {
-   "label": "Pages",
-   "expr": "sum(pages)"
+   "id": "documents",
+   "label": "Documents",
+   "subtitle": "What we hold for each agreement.",
+   "stats": [
+    {
+     "label": "Downloaded",
+     "expr": "count(*) FILTER (WHERE download_status = 'ok')"
+    },
+    {
+     "label": "With text",
+     "expr": "count(*) FILTER (WHERE text_status = 'text')",
+     "hint": "Text could be extracted. Scans have none."
+    },
+    {
+     "label": "Pages",
+     "expr": "sum(pages)"
+    },
+    {
+     "label": "Words",
+     "expr": "sum(words)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Text status",
+     "label": "text_status",
+     "unit": "agreements",
+     "limit": 8
+    },
+    {
+     "type": "top",
+     "title": "Download status",
+     "label": "download_status",
+     "unit": "agreements",
+     "limit": 8
+    },
+    {
+     "type": "top",
+     "title": "Pages by agency",
+     "label": "agencyName",
+     "value": "sum(pages)",
+     "unit": "pages",
+     "limit": 10
+    }
+   ]
   }
  ],
- "charts": [
-  {
-   "type": "top",
-   "title": "Top agencies",
-   "label": "agencyName",
-   "unit": "agreements",
-   "limit": 12
-  },
-  {
-   "type": "top",
-   "title": "Termination flag",
-   "label": "termination_flag",
-   "unit": "agreements",
-   "limit": 12
-  },
-  {
-   "type": "year",
-   "title": "Expiring",
-   "label": "strftime(expirationDate, '%Y')",
-   "unit": "agreements"
-  }
- ]
+ "pivot": {
+  "default": "agencyName",
+  "columns": [
+   "agencyName",
+   "laborUnionName",
+   "flag_group",
+   "termination_flag",
+   "expiration_year",
+   "text_status",
+   "download_status",
+   "eo_coverage",
+   "psf_indicator"
+  ],
+  "measures": [
+   {
+    "id": "pages",
+    "label": "Pages (sum)",
+    "expr": "sum(pages)"
+   }
+  ]
+ },
+ "record": {
+  "key": "id",
+  "title": "{agencyName}: {laborUnionName}",
+  "subtitle": "{subAgencyOrComponent} · {local}",
+  "sections": [
+   {
+    "title": "Agreement",
+    "columns": [
+     "agencyName",
+     "subAgencyOrComponent",
+     "laborUnionName",
+     "local",
+     "expirationDate",
+     "activityOfficeRegion",
+     "busCodes"
+    ]
+   },
+   {
+    "title": "Termination flag",
+    "columns": [
+     "termination_flag",
+     "eo_coverage",
+     "eo_section",
+     "eo_note",
+     "psf_indicator",
+     "termination_basis",
+     "termination_sources"
+    ]
+   },
+   {
+    "title": "File",
+    "columns": [
+     "fileName",
+     "listed_fileSize",
+     "fileUrl",
+     "download_status",
+     "download_http",
+     "bytes",
+     "sha256",
+     "sha256_dup_count",
+     "duplicate_of",
+     "is_pdf_magic",
+     "encrypted"
+    ]
+   },
+   {
+    "title": "Text",
+    "columns": [
+     "text_status",
+     "pages",
+     "words"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "PDF on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/opm-cba-agreements/resolve/main/pdfs/{id:enc}.pdf",
+    "showIf": {
+     "col": "download_status",
+     "equals": "ok"
+    }
+   },
+   {
+    "label": "Extracted text",
+    "href": "https://huggingface.co/datasets/abigailhaddad/opm-cba-agreements/resolve/main/text/{id:enc}.txt",
+    "showIf": {
+     "col": "download_status",
+     "equals": "ok"
+    }
+   },
+   {
+    "label": "File on OPM's site",
+    "href": "{fileUrl}"
+   }
+  ],
+  "related": [
+   {
+    "label": "Identical file",
+    "cols": [
+     "sha256"
+    ],
+    "title": "{agencyName}: {laborUnionName}",
+    "sub": "{subAgencyOrComponent} · {local}",
+    "limit": 8
+   },
+   {
+    "label": "Same union, same agency",
+    "cols": [
+     "agencyName",
+     "laborUnionName"
+    ],
+    "title": "{subAgencyOrComponent}",
+    "sub": "{local} · expires {expirationDate}",
+    "limit": 8
+   }
+  ]
+ }
 }

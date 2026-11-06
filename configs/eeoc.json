@@ -42,15 +42,6 @@
   "dir": "desc"
  },
  "pageSize": 50,
- "detail": {
-  "title": "{agency}, decided {decision_date}",
-  "links": [
-   {
-    "label": "Open the decision on eeoc.gov",
-    "href": "{url}"
-   }
-  ]
- },
  "columns": [
   {
    "key": "sha256",
@@ -258,40 +249,386 @@
    "label": "Prompt version",
    "type": "text",
    "show": false
+  },
+  {
+   "key": "decision_year",
+   "label": "Decision year",
+   "type": "text",
+   "show": false,
+   "expr": "NULLIF(substr(CAST(decision_date AS VARCHAR), 1, 4), '')"
   }
  ],
- "stats": [
+ "views": [
   {
+   "id": "table",
    "label": "Decisions",
-   "expr": "count(*)"
+   "subtitle": "Model-read fields from EEOC appeal decisions, since 2025.",
+   "stats": [
+    {
+     "label": "Decisions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Discrimination found",
+     "expr": "count(*) FILTER (WHERE discrimination_found)",
+     "hint": "Rows marked \"discrimination found\". Model-read."
+    },
+    {
+     "label": "Posted",
+     "expr": "min(posted_month) || ' to ' || max(posted_month)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "month",
+     "title": "By month",
+     "label": "posted_month",
+     "unit": "decisions"
+    },
+    {
+     "type": "top",
+     "title": "Top agencies",
+     "label": "agency",
+     "unit": "decisions",
+     "limit": 10
+    }
+   ]
   },
   {
-   "label": "Agencies",
-   "expr": "count(DISTINCT agency)"
+   "id": "outcomes",
+   "label": "Outcomes",
+   "subtitle": "What the Commission decided. Model-read.",
+   "experimental": true,
+   "stats": [
+    {
+     "label": "Decisions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Found",
+     "expr": "count(*) FILTER (WHERE discrimination_found)",
+     "hint": "Discrimination found. May predate this decision."
+    },
+    {
+     "label": "Relief",
+     "expr": "count(*) FILTER (WHERE complainant_got_relief)"
+    },
+    {
+     "label": "Result changed",
+     "expr": "count(*) FILTER (WHERE commission_changed_result)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "items",
+     "title": "Outcomes",
+     "unit": "decisions",
+     "items": [
+      {
+       "label": "Discrimination found",
+       "expr": "count(*) FILTER (WHERE discrimination_found)"
+      },
+      {
+       "label": "Got relief",
+       "expr": "count(*) FILTER (WHERE complainant_got_relief)"
+      },
+      {
+       "label": "Commission changed result",
+       "expr": "count(*) FILTER (WHERE commission_changed_result)"
+      }
+     ]
+    },
+    {
+     "type": "year",
+     "title": "Found by year",
+     "label": "decision_year",
+     "value": "count(*) FILTER (WHERE discrimination_found)",
+     "unit": "decisions"
+    },
+    {
+     "type": "top",
+     "title": "Found by agency",
+     "label": "agency",
+     "value": "count(*) FILTER (WHERE discrimination_found)",
+     "unit": "decisions",
+     "limit": 10
+    },
+    {
+     "type": "top",
+     "title": "Relief by agency",
+     "label": "agency",
+     "value": "count(*) FILTER (WHERE complainant_got_relief)",
+     "unit": "decisions",
+     "limit": 10
+    }
+   ]
   },
   {
-   "label": "Discrimination found",
-   "expr": "count(*) FILTER (WHERE discrimination_found)",
-   "hint": "Rows marked \"discrimination found\". Model-read."
+   "id": "bases",
+   "label": "Bases & issues",
+   "subtitle": "Why complainants say they were treated unfairly.",
+   "experimental": true,
+   "stats": [
+    {
+     "label": "Decisions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Any basis",
+     "expr": "count(*) FILTER (WHERE basis_race OR basis_sex OR basis_disability OR basis_age OR basis_reprisal)",
+     "hint": "At least one of the five bases is marked."
+    },
+    {
+     "label": "Telework",
+     "expr": "count(*) FILTER (WHERE theme_telework)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "items",
+     "title": "Bases",
+     "unit": "decisions",
+     "items": [
+      {
+       "label": "Race",
+       "expr": "count(*) FILTER (WHERE basis_race)"
+      },
+      {
+       "label": "Sex",
+       "expr": "count(*) FILTER (WHERE basis_sex)"
+      },
+      {
+       "label": "Disability",
+       "expr": "count(*) FILTER (WHERE basis_disability)"
+      },
+      {
+       "label": "Age",
+       "expr": "count(*) FILTER (WHERE basis_age)"
+      },
+      {
+       "label": "Reprisal",
+       "expr": "count(*) FILTER (WHERE basis_reprisal)"
+      }
+     ]
+    },
+    {
+     "type": "items",
+     "title": "Issues",
+     "unit": "decisions",
+     "items": [
+      {
+       "label": "Performance appraisal",
+       "expr": "count(*) FILTER (WHERE issue_performance_appraisal)"
+      },
+      {
+       "label": "Non-selection or promotion",
+       "expr": "count(*) FILTER (WHERE issue_non_selection_or_promotion)"
+      },
+      {
+       "label": "Telework",
+       "expr": "count(*) FILTER (WHERE theme_telework)"
+      }
+     ]
+    },
+    {
+     "type": "items",
+     "title": "Found, by basis",
+     "unit": "%",
+     "format": "percent",
+     "note": "Share of decisions with that basis where discrimination was found.",
+     "items": [
+      {
+       "label": "Race",
+       "expr": "100.0 * count(*) FILTER (WHERE basis_race AND discrimination_found) / nullif(count(*) FILTER (WHERE basis_race), 0)"
+      },
+      {
+       "label": "Sex",
+       "expr": "100.0 * count(*) FILTER (WHERE basis_sex AND discrimination_found) / nullif(count(*) FILTER (WHERE basis_sex), 0)"
+      },
+      {
+       "label": "Disability",
+       "expr": "100.0 * count(*) FILTER (WHERE basis_disability AND discrimination_found) / nullif(count(*) FILTER (WHERE basis_disability), 0)"
+      },
+      {
+       "label": "Age",
+       "expr": "100.0 * count(*) FILTER (WHERE basis_age AND discrimination_found) / nullif(count(*) FILTER (WHERE basis_age), 0)"
+      },
+      {
+       "label": "Reprisal",
+       "expr": "100.0 * count(*) FILTER (WHERE basis_reprisal AND discrimination_found) / nullif(count(*) FILTER (WHERE basis_reprisal), 0)"
+      }
+     ]
+    }
+   ]
   },
   {
-   "label": "Posted",
-   "expr": "min(posted_month) || ' to ' || max(posted_month)"
+   "id": "time",
+   "label": "Over time",
+   "subtitle": "Outcomes by decision year.",
+   "experimental": true,
+   "stats": [
+    {
+     "label": "Decisions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Dated",
+     "expr": "count(decision_date)",
+     "hint": "Decisions with a readable date."
+    },
+    {
+     "label": "Years",
+     "expr": "min(decision_year) || ' to ' || max(decision_year)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Decisions",
+     "label": "decision_year",
+     "unit": "decisions"
+    },
+    {
+     "type": "year",
+     "title": "Found",
+     "label": "decision_year",
+     "value": "count(*) FILTER (WHERE discrimination_found)",
+     "unit": "decisions"
+    },
+    {
+     "type": "year",
+     "title": "Relief",
+     "label": "decision_year",
+     "value": "count(*) FILTER (WHERE complainant_got_relief)",
+     "unit": "decisions"
+    },
+    {
+     "type": "year",
+     "title": "Result changed",
+     "label": "decision_year",
+     "value": "count(*) FILTER (WHERE commission_changed_result)",
+     "unit": "decisions"
+    }
+   ]
   }
  ],
- "charts": [
-  {
-   "type": "month",
-   "title": "By month",
-   "label": "posted_month",
-   "unit": "decisions"
-  },
-  {
-   "type": "top",
-   "title": "Top agencies",
-   "label": "agency",
-   "unit": "decisions",
-   "limit": 10
-  }
- ]
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "decision_year",
+   "posted_month",
+   "discrimination_found",
+   "complainant_got_relief",
+   "commission_changed_result",
+   "basis_race",
+   "basis_sex",
+   "basis_disability",
+   "basis_age",
+   "basis_reprisal",
+   "representation",
+   "aj_found_discrimination",
+   "appealing_party"
+  ],
+  "measures": []
+ },
+ "record": {
+  "key": "sha256",
+  "title": "{file_name}",
+  "subtitle": "{agency} · {decision_date}",
+  "sections": [
+   {
+    "title": "Case",
+    "columns": [
+     "agency",
+     "appealing_party",
+     "numbers",
+     "decision_date",
+     "date_formal_complaint",
+     "posted_month"
+    ]
+   },
+   {
+    "title": "Complainant",
+    "columns": [
+     "job_title",
+     "complainant_race_stated",
+     "complainant_sex_stated",
+     "disability_condition",
+     "representation"
+    ]
+   },
+   {
+    "title": "Bases and issues",
+    "columns": [
+     "basis_race",
+     "basis_sex",
+     "basis_disability",
+     "basis_age",
+     "basis_reprisal",
+     "issue_performance_appraisal",
+     "issue_non_selection_or_promotion",
+     "theme_telework"
+    ]
+   },
+   {
+    "title": "Result",
+    "columns": [
+     "discrimination_found",
+     "complainant_got_relief",
+     "commission_changed_result",
+     "aj_found_discrimination",
+     "agency_action_on_aj"
+    ]
+   },
+   {
+    "title": "File and extraction",
+    "columns": [
+     "file_name",
+     "sha256",
+     "url",
+     "ocr_used",
+     "model",
+     "prompt_version",
+     "values_dropped",
+     "source_warnings"
+    ]
+   }
+  ],
+  "links": [
+   {
+    "label": "Decision on eeoc.gov",
+    "href": "{url}"
+   },
+   {
+    "label": "Dataset card",
+    "href": "https://huggingface.co/datasets/abigailhaddad/eeoc-appellate-decisions"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same case number",
+    "cols": [
+     "numbers"
+    ],
+    "title": "{file_name}",
+    "sub": "{agency} · {decision_date}",
+    "limit": 8
+   },
+   {
+    "label": "Same agency, same decision date",
+    "cols": [
+     "agency",
+     "decision_date"
+    ],
+    "title": "{file_name}",
+    "sub": "{numbers}",
+    "limit": 8
+   }
+  ]
+ }
 }

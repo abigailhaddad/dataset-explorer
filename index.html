@@ -20,6 +20,7 @@
     </div>
     <p id="blurb" class="site-subtitle">Public records, read from Hugging Face.</p>
     <nav id="nav" class="site-nav" aria-label="Datasets"></nav>
+    <div id="viewtabs" class="view-tabs" role="tablist" aria-label="Views" hidden></div>
   </header>
 
   <div id="status" role="status" aria-live="polite"></div>
@@ -37,56 +38,71 @@
       <p id="links" class="links"></p>
     </details>
 
-    <div id="controls" hidden>
-      <div class="toolbar-row">
-        <input id="q" type="search" autocomplete="off" aria-label="Search">
-        <button id="addfilter" type="button" class="primary">+ Add Filter</button>
-        <button id="copy" type="button">Copy Link</button>
-        <button id="csv" type="button">Download CSV</button>
-        <a id="fulllink" class="full-dataset-link" target="_blank" rel="noopener" hidden></a>
+    <!-- List pages: table, bespoke views, pivot -->
+    <div id="listpane" hidden>
+      <div class="toolbar-wrap">
+        <div class="toolbar-row">
+          <input id="q" type="search" autocomplete="off" aria-label="Search">
+          <button id="addfilter" type="button" class="primary" aria-haspopup="dialog" aria-expanded="false" aria-controls="filterpop">+ Add Filter</button>
+          <button id="copy" type="button">Copy Link</button>
+          <button id="csv" type="button">Download CSV</button>
+          <a id="fulllink" class="full-dataset-link" target="_blank" rel="noopener" hidden></a>
+        </div>
+        <div id="filterpop" class="popover" role="dialog" aria-label="Filter" hidden>
+          <label class="field" for="fdcol">Column</label>
+          <select id="fdcol"></select>
+          <div id="fdbody"></div>
+          <p id="fderr" hidden></p>
+          <div class="dactions">
+            <button id="fdremove" type="button">Remove</button>
+            <button id="fdcancel" type="button">Cancel</button>
+            <button id="fdapply" type="button" class="primary">Apply</button>
+          </div>
+        </div>
       </div>
       <div id="chips" class="filters-bar"></div>
 
-      <div id="stats" class="stats-row"></div>
-      <div id="charts" class="charts-grid"></div>
+      <p id="matchbar" class="summary"></p>
 
-      <p id="summary" class="summary"></p>
-      <div class="tablewrap">
-        <table id="grid"><thead></thead><tbody></tbody></table>
+      <div id="viewpane">
+        <div id="stats" class="stats-row"></div>
+        <div id="charts" class="charts-grid"></div>
       </div>
-      <div class="pager">
-        <button id="first" type="button">First</button>
-        <button id="prev" type="button">Previous</button>
-        <span id="pageinfo"></span>
-        <button id="next" type="button">Next</button>
-        <button id="last" type="button">Last</button>
+
+      <div id="tablesection" hidden>
+        <div class="tablewrap">
+          <table id="grid"><thead></thead><tbody></tbody></table>
+        </div>
+        <div class="pagebar">
+          <div id="pager" class="pager" role="navigation" aria-label="Pages"></div>
+          <label class="sizepick">Rows per page
+            <select id="pagesize"></select>
+          </label>
+        </div>
+      </div>
+
+      <div id="pivotsection" hidden>
+        <div class="pivot-builder">
+          <div class="pivot-controls">
+            <label>Rows <select id="pvrow"></select></label>
+            <label>Columns <select id="pvcol"></select></label>
+            <label>Measure <select id="pvmeasure"></select></label>
+            <button id="pvcsv" type="button">Download pivot</button>
+          </div>
+          <p id="pvnote" class="summary"></p>
+        </div>
+        <div class="tablewrap"><div id="pvresult"></div></div>
       </div>
     </div>
+
+    <!-- Record page -->
+    <div id="recordpane" hidden></div>
   </section>
 
   <footer class="site-footer">
     <p>Tables load from Hugging Face in your browser.</p>
   </footer>
 </div>
-
-<dialog id="detail">
-  <div class="dhead"><h2 id="dtitle"></h2><button id="dclose" type="button" aria-label="Close">Close</button></div>
-  <p id="dlinks" class="links"></p>
-  <dl id="dbody"></dl>
-</dialog>
-
-<dialog id="filterdlg">
-  <div class="dhead"><h2 id="fdtitle">Filter</h2></div>
-  <label class="field" for="fdcol">Column</label>
-  <select id="fdcol"></select>
-  <div id="fdbody"></div>
-  <p id="fderr" hidden></p>
-  <div class="dactions">
-    <button id="fdremove" type="button">Remove</button>
-    <button id="fdcancel" type="button">Cancel</button>
-    <button id="fdapply" type="button" class="primary">Apply</button>
-  </div>
-</dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script type="module" src="app.js"></script>

@@ -1,0 +1,5 @@
+.scratch/
+verify/out_*.json
+verify/pv_*.json
+verify/_l.json
+verify/one_*.json

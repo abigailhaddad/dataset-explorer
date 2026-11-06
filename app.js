@@ -2,44 +2,78 @@
  *
  * DuckDB-WASM reads the Parquet/CSV straight from its HTTPS URL (Hugging Face
  * "resolve" links), so the page never holds a copy and shows whatever is
- * published now. Every number on the page comes from a SQL query against a view
- * called `t` that is built from the config's column list.
+ * published now. Every number comes from a SQL query against a view called `t`
+ * that is built from the config's column list (and optional joined tables).
  *
- * State has one owner: `view` (search, filters, sort, page, open row). The URL
- * is written from it (writeURL) and read back into it (readURL). Controls,
- * chips, stats and charts are drawn from it. Nothing else keeps a copy.
+ * Two kinds of page, one URL space:
+ *   list    ?d=<dataset>&v=<view>&q=&f.<col>=&sort=&dir=&page=&size=  (+ pivot: pr pc pm ps pd)
+ *   record  ?d=<dataset>&r=<record key>&back=<the list query to return to>
  *
- * URL: ?d=<dataset>&q=<search>&f.<col>=<value> (repeat for several values)
- *      &f.<col>.min= &f.<col>.max= &sort=<col>&dir=asc|desc&page=<n>&open=<key>
+ * State has one owner: `view`. The URL is written from it (writeURL) and read
+ * back into it (readState). A record page keeps the list state it came from in
+ * `back`, so "Back to results" and previous/next restore it.
  *
- * Config shape is documented in README.md. Chart.js is a classic script in
- * index.html and is used as the global `Chart`.
+ * Views come from config.views (a table view first, then bespoke chart views);
+ * a "Pivot & counts" view is added when config.pivot exists. Chart.js is a
+ * classic script in index.html and is used as the global `Chart`.
  */
 import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm';
 
 const BLANK = '__blank__';
 const EXPORT_LIMIT = 250000;
 const FACET_LIMIT = 500;
-const CHART_GROUP_LIMIT = 5000;
+const CHART_GROUP_LIMIT = 20000;
+const PAGE_SIZES = [25, 50, 100, 200];
+const PIVOT_ROWS = 200;
+const PIVOT_COLS = 12;
+const PIVOT_CELL_LIMIT = 200000;
 
 const el = (id) => document.getElementById(id);
 const qi = (name) => '"' + name.replace(/"/g, '""') + '"';
+
+// Make one element: h('p', 'cls', 'text').
+function h(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
 
 // Set once while starting; read-only afterwards.
 let config = null;
 let db = null;
 let conn = null;
-const facets = {}; // column key -> { truncated, items: [{ value, label, n }] }
+let mainRel = ''; // SQL for the main table's files, before the view `t`
+let joinRels = []; // SQL for each joined table
+let sourceUrls = [];
 const colByKey = {};
-const charts = []; // { spec, chart, box, foot, tbody }
-let sourceUrls = []; // the data files actually read; set once in createView
+
+// Filled lazily the first time a list page is shown.
+let materialized = false;
+let facetsLoaded = false;
+let listBuilt = false;
+const facets = {}; // column key -> { truncated, items: [{ value, label, n }] }
 
 // The one owner of what the user is looking at.
-const view = { q: '', filters: {}, sort: { col: null, dir: 'asc' }, page: 1, open: null };
+const view = {
+  v: null,
+  q: '',
+  filters: {},
+  sort: { col: null, dir: 'asc' },
+  page: 1,
+  size: 50,
+  record: null,
+  back: '',
+  pivot: { row: '', col: '', measure: 'count', sort: { key: '__total', dir: 'desc' } },
+};
 let total = 0;
 let notices = [];
 let latest = 0; // bumped on every refresh so a slow, stale answer is dropped
 let typingTimer = null;
+let filterTrigger = null;
+const charts = []; // { spec, chart, box, foot, table }
+let pivotCells = null; // last pivot query: { rows, measure, rowCol, colCol }
+let pivotShown = null; // what the pivot table shows, for CSV
 
 /* ---------- messages ---------- */
 
@@ -47,12 +81,9 @@ function setStatus(text, kind, busy) {
   const box = el('status');
   box.replaceChildren();
   if (!text) return;
-  const msg = document.createElement('div');
-  msg.className = 'msg ' + (kind || '');
-  msg.textContent = text;
+  const msg = h('div', 'msg ' + (kind || ''), text);
   if (busy) {
-    const bar = document.createElement('div');
-    bar.className = 'bar';
+    const bar = h('div', 'bar');
     bar.append(document.createElement('i'));
     msg.append(bar);
   }
@@ -87,9 +118,24 @@ async function fetchJSON(url) {
   return r.json();
 }
 
+function checkChart(c, ch, bad) {
+  if (!['month', 'year', 'top', 'stack', 'items'].includes(ch.type)) bad('chart type must be month, year, top, stack or items');
+  if (!ch.title) bad('each chart needs a title');
+  if (ch.type === 'items') {
+    if (!Array.isArray(ch.items) || !ch.items.length) bad('chart "' + ch.title + '" needs items');
+    for (const it of ch.items) if (!it.label || !it.expr) bad('chart "' + ch.title + '": each item needs a label and an expr');
+  } else if (ch.type === 'stack') {
+    if (!ch.x || !ch.series) bad('chart "' + ch.title + '" needs x and series expressions');
+    if (ch.kind && !['month', 'year', 'category'].includes(ch.kind)) bad('chart "' + ch.title + '": kind must be month, year or category');
+  } else if (!ch.label) {
+    bad('chart "' + ch.title + '" needs a label expression');
+  }
+  if (ch.limit !== undefined && !(ch.limit >= 1 && ch.limit <= 50)) bad('chart limit must be 1 to 50');
+}
+
 function checkConfig(c) {
   const bad = (msg) => { throw new Error('Config ' + c.id + ': ' + msg); };
-  for (const k of ['id', 'title', 'key', 'source', 'columns', 'searchColumns', 'covers']) {
+  for (const k of ['id', 'title', 'key', 'source', 'columns', 'searchColumns', 'covers', 'record']) {
     if (!c[k]) bad('missing "' + k + '"');
   }
   if (!['parquet', 'csv'].includes(c.source.format)) bad('source.format must be parquet or csv');
@@ -99,10 +145,14 @@ function checkConfig(c) {
     bad('source.urls must be a list');
   }
   if (!(c.pageSize >= 1 && c.pageSize <= 500)) bad('pageSize must be 1 to 500');
+  for (const j of c.joins || []) {
+    if (!j.id || !j.on || !Array.isArray(j.urls) || !j.urls.length) bad('each join needs id, on and urls');
+  }
   for (const col of c.columns) {
     if (!['text', 'number', 'date', 'bool'].includes(col.type)) bad(col.key + ': type must be text, number, date or bool');
     if (col.filter && !['select', 'text', 'range'].includes(col.filter)) bad(col.key + ': unknown filter ' + col.filter);
     if (col.filter === 'range' && !['number', 'date'].includes(col.type)) bad(col.key + ': range needs a number or date column');
+    if (col.join && !(c.joins || []).some((j) => j.id === col.join)) bad(col.key + ': unknown join ' + col.join);
     colByKey[col.key] = col;
   }
   if (!colByKey[c.key]) bad('key column ' + c.key + ' is not in columns');
@@ -110,18 +160,44 @@ function checkConfig(c) {
     if (!colByKey[s] || colByKey[s].type !== 'text') bad('searchColumns: ' + s + ' must be a text column');
   }
   if (c.defaultSort && !colByKey[c.defaultSort.col]) bad('defaultSort column is not in columns');
-  for (const s of c.stats || []) {
-    if (!s.label || !s.expr) bad('each stat needs a label and an expr');
+
+  // Views: the config's, then the generic pivot view.
+  const views = (c.views || []).map((v) => ({ ...v }));
+  if (!views.length) bad('missing "views"');
+  views[0].table = true;
+  const ids = new Set();
+  for (const v of views) {
+    if (!v.id || !v.label) bad('each view needs an id and a label');
+    if (ids.has(v.id)) bad('duplicate view id ' + v.id);
+    ids.add(v.id);
+    for (const s of v.stats || []) if (!s.label || !s.expr) bad('view ' + v.id + ': each stat needs a label and an expr');
+    for (const ch of v.charts || []) checkChart(c, ch, bad);
   }
-  for (const ch of c.charts || []) {
-    if (!['month', 'year', 'top'].includes(ch.type)) bad('chart type must be month, year or top');
-    if (!ch.title || !ch.label) bad('each chart needs a title and a label expression');
-    if (ch.limit !== undefined && !(ch.limit >= 1 && ch.limit <= 50)) bad('chart limit must be 1 to 50');
+  if (c.pivot) {
+    if (!Array.isArray(c.pivot.columns) || !c.pivot.columns.length) bad('pivot.columns must be a list');
+    for (const k of c.pivot.columns) if (!colByKey[k]) bad('pivot column ' + k + ' is not in columns');
+    if (!colByKey[c.pivot.default]) bad('pivot.default must be a column');
+    for (const m of c.pivot.measures || []) if (!m.id || !m.label || !m.expr) bad('each pivot measure needs id, label and expr');
+    views.push({ id: 'pivot', label: 'Pivot & counts', subtitle: 'Count rows by any field.', pivot: true });
   }
-  const templates = [];
+  c.viewList = views;
+
+  // Record page.
+  const r = c.record;
+  if (!colByKey[r.key]) bad('record.key ' + r.key + ' is not a column');
+  if (!r.title || !r.sections || !r.sections.length) bad('record needs a title and sections');
+  const templates = [...[].concat(r.title), r.subtitle || ''];
+  for (const sec of r.sections) {
+    for (const k of sec.columns) if (!colByKey[k]) bad('record section ' + sec.title + ': unknown column ' + k);
+  }
+  for (const t of r.text || []) if (!colByKey[t.column]) bad('record.text: unknown column ' + t.column);
+  for (const l of r.links || []) templates.push(l.href);
+  for (const rel of r.related || []) {
+    for (const k of rel.cols) if (!colByKey[k]) bad('record.related: unknown column ' + k);
+    templates.push(rel.title);
+    templates.push(rel.sub || '');
+  }
   for (const col of c.columns) if (col.link) templates.push(col.link);
-  for (const l of (c.detail && c.detail.links) || []) templates.push(l.href);
-  if (c.detail && c.detail.title) templates.push(c.detail.title);
   for (const t of templates) {
     for (const m of t.matchAll(/\{(\w+)(?::enc)?\}/g)) {
       if (!colByKey[m[1]]) bad('template ' + t + ' uses unknown column ' + m[1]);
@@ -137,7 +213,17 @@ function fill(template, row) {
   });
 }
 
+// The first of several title templates that fills in to something.
+function fillFirst(spec, row) {
+  for (const t of [].concat(spec)) {
+    const s = fill(t, row).trim();
+    if (s) return s;
+  }
+  return '';
+}
+
 function safeHref(href) {
+  if (!href) return null;
   try {
     const u = new URL(href, location.href);
     return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null;
@@ -191,42 +277,75 @@ async function discoverUrls(d) {
   return found.map((p) => 'https://huggingface.co/datasets/' + d.hfDataset + '/resolve/main/' + p);
 }
 
+async function registerFiles(prefix, urls, ext) {
+  const names = [];
+  for (let i = 0; i < urls.length; i++) {
+    const name = prefix + i + '.' + ext;
+    await db.registerFileURL(name, urls[i], duckdb.DuckDBDataProtocol.HTTP, false);
+    names.push("'" + name + "'");
+  }
+  return '[' + names.join(', ') + ']';
+}
+
+function readRel(list, format) {
+  return format === 'parquet'
+    ? 'read_parquet(' + list + ', union_by_name=true)'
+    : 'read_csv(' + list + ', header=true, all_varchar=true' + (config.source.csvOptions ? ', ' + config.source.csvOptions : '') + ')';
+}
+
+// (Re)define the view `t` over the main relation and the joined tables.
+async function defineT(rel) {
+  let from = rel + ' AS m';
+  (config.joins || []).forEach((j, i) => {
+    from += ' LEFT JOIN ' + joinRels[i] + ' AS j' + i + ' ON m.' + qi(j.on) + ' = j' + i + '.' + qi(j.on);
+  });
+  const exprs = config.columns.map((c) => {
+    if (c.expr) return '(' + c.expr + ') AS ' + qi(c.key);
+    const ji = c.join ? config.joins.findIndex((j) => j.id === c.join) : -1;
+    const src = (ji >= 0 ? 'j' + ji : 'm') + '.' + qi(c.from || c.key);
+    if (c.type === 'number') return 'TRY_CAST(' + src + ' AS DOUBLE) AS ' + qi(c.key);
+    if (c.type === 'date') return 'TRY_CAST(' + src + ' AS DATE) AS ' + qi(c.key);
+    if (c.type === 'bool') return 'TRY_CAST(' + src + ' AS BOOLEAN) AS ' + qi(c.key);
+    return 'NULLIF(CAST(' + src + " AS VARCHAR), '') AS " + qi(c.key);
+  });
+  await conn.query('CREATE OR REPLACE VIEW t AS SELECT ' + exprs.join(', ') + ' FROM ' + from);
+}
+
 async function createView() {
   const ext = config.source.format;
   sourceUrls = config.source.discover ? await discoverUrls(config.source.discover) : config.source.urls;
-  const names = [];
-  for (let i = 0; i < sourceUrls.length; i++) {
-    const name = 'src' + i + '.' + ext;
-    await db.registerFileURL(name, sourceUrls[i], duckdb.DuckDBDataProtocol.HTTP, false);
-    names.push("'" + name + "'");
+  mainRel = readRel(await registerFiles('src', sourceUrls, ext), ext);
+  joinRels = [];
+  for (let i = 0; i < (config.joins || []).length; i++) {
+    joinRels.push(readRel(await registerFiles('join' + i + '_', config.joins[i].urls, ext), ext));
   }
-  const list = '[' + names.join(', ') + ']';
-  let rel = ext === 'parquet'
-    ? 'read_parquet(' + list + ', union_by_name=true)'
-    : 'read_csv(' + list + ', header=true, all_varchar=true' + (config.source.csvOptions ? ', ' + config.source.csvOptions : '') + ')';
-  // Many small files: read them once into memory instead of re-reading every
-  // file's footer on every query.
   let found = null;
+  const joinFound = [];
   try {
-    if (config.source.materialize) {
-      await conn.query('CREATE OR REPLACE TABLE raw AS SELECT * FROM ' + rel);
-      rel = 'raw';
-    }
-    found = new Set((await runQuery('DESCRIBE SELECT * FROM ' + rel, [])).map((r) => r.column_name));
+    found = new Set((await runQuery('DESCRIBE SELECT * FROM ' + mainRel, [])).map((r) => r.column_name));
+    for (const rel of joinRels) joinFound.push(new Set((await runQuery('DESCRIBE SELECT * FROM ' + rel, [])).map((r) => r.column_name)));
   } catch (e) {
     throw new Error('Could not read ' + sourceUrls[0] + ' (' + e.message + '). The file may have moved, or Hugging Face is limiting requests.');
   }
-  const missing = config.columns.filter((c) => !c.expr && !found.has(c.key)).map((c) => c.key);
+  const missing = [];
+  for (const c of config.columns) {
+    if (c.expr) continue;
+    const have = c.join ? joinFound[config.joins.findIndex((j) => j.id === c.join)] : found;
+    if (!have.has(c.from || c.key)) missing.push(c.from || c.key);
+  }
   if (missing.length) throw new Error('The file has no column named ' + missing.join(', ') + '. Check the config.');
+  await defineT(mainRel);
+}
 
-  const exprs = config.columns.map((c) => {
-    if (c.expr) return '(' + c.expr + ') AS ' + qi(c.key);
-    if (c.type === 'number') return 'TRY_CAST(' + qi(c.key) + ' AS DOUBLE) AS ' + qi(c.key);
-    if (c.type === 'date') return 'TRY_CAST(' + qi(c.key) + ' AS DATE) AS ' + qi(c.key);
-    if (c.type === 'bool') return 'TRY_CAST(' + qi(c.key) + ' AS BOOLEAN) AS ' + qi(c.key);
-    return "NULLIF(CAST(" + qi(c.key) + " AS VARCHAR), '') AS " + qi(c.key);
-  });
-  await conn.query('CREATE OR REPLACE VIEW t AS SELECT ' + exprs.join(', ') + ' FROM ' + rel);
+// Many small files: read them once into memory instead of re-reading every
+// file's footer on every query. A record page does not need this, so it waits
+// until a list page is shown.
+async function materializeIfNeeded() {
+  if (!config.source.materialize || materialized) return;
+  busy('Loading the table…');
+  await conn.query('CREATE OR REPLACE TABLE raw AS SELECT * FROM ' + mainRel);
+  await defineT('raw');
+  materialized = true;
 }
 
 // Dates come back as text so they print and export as YYYY-MM-DD.
@@ -237,6 +356,7 @@ function selectList() {
 }
 
 async function loadFacets() {
+  if (facetsLoaded) return;
   for (const c of config.columns.filter((x) => x.filter === 'select')) {
     const rows = await runQuery(
       'SELECT CAST(' + qi(c.key) + ' AS VARCHAR) AS v, count(*) AS n FROM t GROUP BY 1 ORDER BY n DESC, v LIMIT ' + (FACET_LIMIT + 1), []
@@ -251,6 +371,7 @@ async function loadFacets() {
       })),
     };
   }
+  facetsLoaded = true;
 }
 
 /* ---------- state <-> URL ---------- */
@@ -271,9 +392,22 @@ function validBound(c, v) {
   return /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
 
-function readURL() {
+function pivotDefaults() {
+  return { row: config.pivot ? config.pivot.default : '', col: '', measure: 'count', sort: { key: '__total', dir: 'desc' } };
+}
+
+// Read the page's URL into `view`. A record page keeps its list state in `back`.
+function readState(params) {
   notices = [];
-  const p = new URLSearchParams(location.search);
+  view.record = params.get('r');
+  view.back = view.record !== null ? params.get('back') || '' : '';
+  const p = view.record !== null ? new URLSearchParams(view.back) : params;
+
+  const wanted = p.get('v');
+  const ids = config.viewList.map((v) => v.id);
+  if (wanted && !ids.includes(wanted)) notices.push('Ignored unknown view "' + wanted + '".');
+  view.v = wanted && ids.includes(wanted) ? wanted : ids[0];
+
   view.q = p.get('q') || '';
   view.filters = emptyFilters();
   for (const c of config.columns) {
@@ -301,12 +435,30 @@ function readURL() {
   const dir = p.get('dir') || ds.dir || 'asc';
   view.sort = { col, dir: dir === 'desc' ? 'desc' : 'asc' };
   view.page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
-  view.open = p.get('open');
+  const size = parseInt(p.get('size') || '', 10);
+  view.size = pageSizes().includes(size) ? size : config.pageSize;
+
+  view.pivot = pivotDefaults();
+  if (config.pivot) {
+    const row = p.get('pr');
+    const col2 = p.get('pc');
+    const measure = p.get('pm');
+    if (row && config.pivot.columns.includes(row)) view.pivot.row = row;
+    if (col2 && config.pivot.columns.includes(col2) && col2 !== view.pivot.row) view.pivot.col = col2;
+    if (measure && (config.pivot.measures || []).some((m) => m.id === measure)) view.pivot.measure = measure;
+    view.pivot.sort.key = p.get('ps') || '__total';
+    view.pivot.sort.dir = p.get('pd') === 'asc' ? 'asc' : p.get('pd') === 'desc' ? 'desc' : view.pivot.sort.key === '__row' ? 'asc' : 'desc';
+  }
 }
 
-function writeURL(push) {
+function pageSizes() {
+  return PAGE_SIZES.includes(config.pageSize) ? PAGE_SIZES : [...PAGE_SIZES, config.pageSize].sort((a, b) => a - b);
+}
+
+// The list state as a query string (no `d`), for the list URL and for `back=`.
+function listQuery() {
   const p = new URLSearchParams();
-  p.set('d', config.id);
+  if (view.v !== config.viewList[0].id) p.set('v', view.v);
   if (view.q) p.set('q', view.q);
   for (const c of config.columns) {
     const f = view.filters[c.key];
@@ -323,10 +475,39 @@ function writeURL(push) {
     p.set('dir', view.sort.dir);
   }
   if (view.page > 1) p.set('page', String(view.page));
-  if (view.open) p.set('open', view.open);
-  const url = location.pathname + '?' + p;
-  if (push) history.pushState(null, '', url);
-  else history.replaceState(null, '', url);
+  if (view.size !== config.pageSize) p.set('size', String(view.size));
+  if (view.v === 'pivot') {
+    const def = pivotDefaults();
+    if (view.pivot.row !== def.row) p.set('pr', view.pivot.row);
+    if (view.pivot.col) p.set('pc', view.pivot.col);
+    if (view.pivot.measure !== 'count') p.set('pm', view.pivot.measure);
+    if (view.pivot.sort.key !== '__total' || view.pivot.sort.dir !== 'desc') {
+      p.set('ps', view.pivot.sort.key);
+      p.set('pd', view.pivot.sort.dir);
+    }
+  }
+  return p.toString();
+}
+
+function listUrl() {
+  const s = listQuery();
+  return '?d=' + config.id + (s ? '&' + s : '');
+}
+
+function recordUrl(key) {
+  const s = listQuery();
+  return '?d=' + config.id + '&r=' + encodeURIComponent(key) + (s ? '&back=' + encodeURIComponent(s) : '');
+}
+
+function writeURL(push) {
+  if (push) history.pushState(null, '', listUrl());
+  else history.replaceState(null, '', listUrl());
+}
+
+function go(href) {
+  history.pushState(null, '', href);
+  window.scrollTo(0, 0);
+  route().catch(fail);
 }
 
 /* ---------- SQL from state ---------- */
@@ -372,10 +553,11 @@ function buildWhere() {
   return { sql: parts.length ? ' WHERE ' + parts.join(' AND ') : '', params };
 }
 
-function orderBy() {
+// The order clause body, without "ORDER BY": the sort column, then the key.
+function orderBody() {
   const key = qi(config.key);
-  if (!view.sort.col) return ' ORDER BY ' + key;
-  return ' ORDER BY ' + qi(view.sort.col) + (view.sort.dir === 'desc' ? ' DESC' : ' ASC') + ' NULLS LAST, ' + key;
+  if (!view.sort.col) return key;
+  return qi(view.sort.col) + (view.sort.dir === 'desc' ? ' DESC' : ' ASC') + ' NULLS LAST, ' + key;
 }
 
 /* ---------- table ---------- */
@@ -393,16 +575,14 @@ function formatValue(c, v) {
 
 function cellNode(c, row) {
   const text = formatValue(c, row[c.key]);
-  const span = document.createElement('span');
-  span.className = 'cell';
+  const span = h('span', 'cell');
   span.title = text;
   const href = c.link && text ? safeHref(fill(c.link, row)) : null;
   if (href) {
-    const a = document.createElement('a');
+    const a = h('a', '', text);
     a.href = href;
     a.target = '_blank';
     a.rel = 'noopener';
-    a.textContent = text;
     span.append(a);
   } else {
     span.textContent = text;
@@ -419,8 +599,7 @@ function buildTableHead() {
   head.replaceChildren();
   const tr = document.createElement('tr');
   for (const c of shownColumns()) {
-    const th = document.createElement('th');
-    th.textContent = c.label;
+    const th = h('th', '', c.label);
     th.dataset.key = c.key;
     th.tabIndex = 0;
     if (c.help) th.title = c.help;
@@ -432,35 +611,91 @@ function buildTableHead() {
 function renderGrid(rows) {
   const body = el('grid').tBodies[0];
   body.replaceChildren();
+  const cols = shownColumns();
   for (const row of rows) {
     const tr = document.createElement('tr');
     tr.dataset.key = row[config.key];
-    for (const c of shownColumns()) {
+    cols.forEach((c, i) => {
       const td = document.createElement('td');
       td.dataset.label = c.label;
       if (c.type === 'number') td.className = 'num';
       if (row[c.key] === null || row[c.key] === '') td.classList.add('empty');
-      td.append(cellNode(c, row));
+      if (i === 0 && row[c.key] !== null && row[c.key] !== '') {
+        // The first column opens the record page; it is a real link, so it can open in a new tab.
+        const a = h('a', 'recordlink', formatValue(c, row[c.key]));
+        a.href = recordUrl(row[config.key]);
+        a.dataset.soft = '1';
+        a.title = 'Open this record';
+        const span = h('span', 'cell');
+        span.append(a);
+        td.append(span);
+      } else {
+        td.append(cellNode(c, row));
+      }
       tr.append(td);
-    }
+    });
     body.append(tr);
   }
 }
 
-function renderSummary() {
-  const size = config.pageSize;
-  const pages = Math.max(1, Math.ceil(total / size));
-  const from = total ? (view.page - 1) * size + 1 : 0;
-  const to = Math.min(total, view.page * size);
-  el('summary').textContent = total
-    ? from.toLocaleString() + ' to ' + to.toLocaleString() + ' of ' + total.toLocaleString() + ' rows'
-    : 'No rows match.';
-  el('pageinfo').textContent = 'Page ' + view.page.toLocaleString() + ' of ' + pages.toLocaleString();
-  el('first').disabled = el('prev').disabled = view.page <= 1;
-  el('next').disabled = el('last').disabled = view.page >= pages;
+function pageItems(page, pages) {
+  const keep = new Set([1, pages, page - 1, page, page + 1]);
+  const nums = [...keep].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+  const items = [];
+  let last = 0;
+  for (const n of nums) {
+    if (n - last > 1) items.push('…');
+    items.push(n);
+    last = n;
+  }
+  return items;
 }
 
-/* ---------- toolbar and filter chips ---------- */
+function renderPager() {
+  const pages = Math.max(1, Math.ceil(total / view.size));
+  const box = el('pager');
+  box.replaceChildren();
+  const add = (label, page, extra) => {
+    const b = h('button', extra || '', label);
+    b.type = 'button';
+    b.dataset.page = String(page);
+    box.append(b);
+    return b;
+  };
+  add('First', 1).disabled = view.page <= 1;
+  add('Previous', view.page - 1).disabled = view.page <= 1;
+  for (const item of pageItems(view.page, pages)) {
+    if (item === '…') {
+      box.append(h('span', 'gap', '…'));
+      continue;
+    }
+    const b = add(String(item), item, item === view.page ? 'current' : '');
+    if (item === view.page) b.setAttribute('aria-current', 'page');
+    b.setAttribute('aria-label', 'Page ' + item);
+  }
+  add('Next', view.page + 1).disabled = view.page >= pages;
+  add('Last', pages).disabled = view.page >= pages;
+  el('pagesize').value = String(view.size);
+}
+
+function renderMatchBar() {
+  const bar = el('matchbar');
+  bar.replaceChildren();
+  const vw = activeView();
+  if (vw.table) {
+    const from = total ? (view.page - 1) * view.size + 1 : 0;
+    const to = Math.min(total, view.page * view.size);
+    bar.append(total ? from.toLocaleString() + ' to ' + to.toLocaleString() + ' of ' + total.toLocaleString() + ' rows' : 'No rows match.');
+    return;
+  }
+  bar.append(total.toLocaleString() + (total === 1 ? ' row matches. ' : ' rows match. '));
+  const b = h('button', '', 'Show rows');
+  b.type = 'button';
+  b.dataset.act = 'rows';
+  bar.append(b);
+}
+
+/* ---------- toolbar, filter chips, filter popover ---------- */
 
 function filterColumns() {
   return config.columns.filter((c) => c.filter);
@@ -494,42 +729,29 @@ function renderChips() {
   bar.replaceChildren();
   const active = filterColumns().filter(isActive);
   if (!active.length) {
-    const none = document.createElement('span');
-    none.className = 'filters-bar-empty';
-    none.textContent = 'No filters applied';
-    bar.append(none);
+    bar.append(h('span', 'filters-bar-empty', 'No filters applied'));
     return;
   }
   for (const c of active) {
-    const chip = document.createElement('span');
-    chip.className = 'filter-chip';
-    const edit = document.createElement('button');
+    const chip = h('span', 'filter-chip');
+    const edit = h('button', 'filter-chip-edit');
     edit.type = 'button';
-    edit.className = 'filter-chip-edit';
     edit.dataset.act = 'edit';
     edit.dataset.key = c.key;
-    const label = document.createElement('span');
-    label.className = 'filter-chip-label';
-    label.textContent = c.label;
-    const value = document.createElement('span');
-    value.className = 'filter-chip-value';
-    value.textContent = chipValue(c);
+    const value = h('span', 'filter-chip-value', chipValue(c));
     value.title = chipValue(c);
-    edit.append(label, value);
-    const remove = document.createElement('button');
+    edit.append(h('span', 'filter-chip-label', c.label), value);
+    const remove = h('button', 'filter-chip-remove', '×');
     remove.type = 'button';
-    remove.className = 'filter-chip-remove';
     remove.dataset.act = 'remove';
     remove.dataset.key = c.key;
     remove.setAttribute('aria-label', 'Remove ' + c.label + ' filter');
-    remove.textContent = '×';
     chip.append(edit, remove);
     bar.append(chip);
   }
-  const clear = document.createElement('button');
+  const clear = h('button', '', 'Clear all');
   clear.type = 'button';
   clear.dataset.act = 'clear';
-  clear.textContent = 'Clear all';
   bar.append(clear);
 }
 
@@ -558,15 +780,12 @@ function buildToolbar() {
   link.hidden = !link.href;
 }
 
-/* ---------- filter dialog ---------- */
-
 function buildFilterColumnList() {
   const sel = el('fdcol');
   sel.replaceChildren();
   for (const c of filterColumns()) {
-    const o = document.createElement('option');
+    const o = h('option', '', c.label);
     o.value = c.key;
-    o.textContent = c.label;
     sel.append(o);
   }
 }
@@ -579,33 +798,25 @@ function drawEditor() {
   el('fderr').hidden = true;
   el('fdremove').hidden = !isActive(c);
   if (c.filter === 'select') {
-    const narrow = document.createElement('input');
+    const narrow = h('input');
     narrow.type = 'search';
     narrow.id = 'fdnarrow';
     narrow.placeholder = 'Narrow the list';
     narrow.setAttribute('aria-label', 'Narrow the ' + c.label + ' list');
-    const opts = document.createElement('div');
-    opts.className = 'opts';
+    const opts = h('div', 'opts');
     for (const item of facets[c.key].items) {
       const lab = document.createElement('label');
-      const box = document.createElement('input');
+      const box = h('input');
       box.type = 'checkbox';
       box.value = item.value;
       box.checked = f.includes(item.value);
-      const name = document.createElement('span');
-      name.textContent = item.label;
-      const cnt = document.createElement('span');
-      cnt.className = 'c';
-      cnt.textContent = item.n.toLocaleString();
-      lab.append(box, name, cnt);
+      lab.append(box, h('span', '', item.label), h('span', 'c', item.n.toLocaleString()));
       opts.append(lab);
     }
-    const note = document.createElement('p');
-    note.className = 'summary';
-    note.textContent = 'Counts cover the whole table.' + (facets[c.key].truncated ? ' Top ' + FACET_LIMIT + ' values shown.' : '');
+    const note = h('p', 'summary', 'Counts cover the whole table.' + (facets[c.key].truncated ? ' Top ' + FACET_LIMIT + ' values shown.' : ''));
     body.append(narrow, opts, note);
   } else if (c.filter === 'text') {
-    const input = document.createElement('input');
+    const input = h('input');
     input.type = 'search';
     input.id = 'fdtext';
     input.placeholder = 'Contains';
@@ -613,15 +824,14 @@ function drawEditor() {
     input.value = f;
     body.append(input);
   } else {
-    const row = document.createElement('div');
-    row.className = 'rangerow';
+    const row = h('div', 'rangerow');
     const type = c.type === 'date' ? 'date' : 'number';
-    const lo = document.createElement('input');
+    const lo = h('input');
     lo.type = type;
     lo.id = 'fdmin';
     lo.value = f.min;
     lo.setAttribute('aria-label', c.label + ' from');
-    const hi = document.createElement('input');
+    const hi = h('input');
     hi.type = type;
     hi.id = 'fdmax';
     hi.value = f.max;
@@ -631,10 +841,21 @@ function drawEditor() {
   }
 }
 
-function openFilter(key) {
+function openFilter(key, trigger) {
+  filterTrigger = trigger;
   el('fdcol').value = key || filterColumns()[0].key;
   drawEditor();
-  el('filterdlg').showModal();
+  el('filterpop').hidden = false;
+  el('addfilter').setAttribute('aria-expanded', 'true');
+  const first = el('fdbody').querySelector('input') || el('fdcol');
+  first.focus();
+}
+
+function closeFilter(giveFocusBack) {
+  if (el('filterpop').hidden) return;
+  el('filterpop').hidden = true;
+  el('addfilter').setAttribute('aria-expanded', 'false');
+  if (giveFocusBack && filterTrigger && filterTrigger.isConnected) filterTrigger.focus();
 }
 
 function applyFilter() {
@@ -655,72 +876,116 @@ function applyFilter() {
     view.filters[c.key] = range;
   }
   view.page = 1;
-  el('filterdlg').close();
+  closeFilter(true);
   update(true);
 }
 
 function removeFilter(key) {
-  const c = colByKey[key];
   view.filters[key] = emptyFilters()[key];
   view.page = 1;
   update(true);
-  return c;
+}
+
+/* ---------- views (tabs) ---------- */
+
+function activeView() {
+  return config.viewList.find((v) => v.id === view.v);
+}
+
+function renderTabs() {
+  const tabs = el('viewtabs');
+  tabs.replaceChildren();
+  for (const v of config.viewList) {
+    const b = h('button', 'view-tab', v.label);
+    b.type = 'button';
+    b.setAttribute('role', 'tab');
+    b.dataset.view = v.id;
+    const on = v.id === view.v;
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    b.tabIndex = on ? 0 : -1;
+    tabs.append(b);
+  }
+  tabs.hidden = config.viewList.length < 2;
+}
+
+function setView(id) {
+  view.v = id;
+  view.page = 1;
+  writeURL(true);
+  showList().catch(fail);
+}
+
+function renderHeading() {
+  const vw = activeView();
+  const sub = el('blurb');
+  sub.replaceChildren(vw.subtitle || config.blurb || '');
+  if (vw.experimental) sub.append(' ', h('span', 'badge', 'Experimental'));
 }
 
 /* ---------- stats and charts ---------- */
 
-function buildStats() {
+function fmtNumber(spec, n) {
+  const v = Number(n);
+  if (spec.format === 'currency') return '$' + v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (spec.format === 'percent') return v.toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
+  return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function buildStats(specs) {
   const row = el('stats');
   row.replaceChildren();
-  (config.stats || []).forEach((s, i) => {
-    const card = document.createElement('div');
-    card.className = 'stat-card';
+  specs.forEach((s, i) => {
+    const card = h('div', 'stat-card');
     if (s.hint) card.title = s.hint;
-    const h = document.createElement('h3');
-    h.textContent = s.label;
-    const v = document.createElement('div');
-    v.className = 'stat-value';
+    const v = h('div', 'stat-value', '--');
     v.id = 'stat' + i;
-    v.textContent = '--';
-    card.append(h, v);
+    card.append(h('h3', '', s.label), v);
     row.append(card);
   });
 }
 
-function statText(v) {
+function statText(spec, v) {
   if (v === null || v === undefined) return '—';
-  if (typeof v === 'bigint' || typeof v === 'number') return Number(v).toLocaleString();
+  if (typeof v === 'bigint' || typeof v === 'number') return spec.format ? fmtNumber(spec, v) : Number(v).toLocaleString();
   return String(v);
 }
 
-async function refreshStats(id, whereSql, params) {
-  const specs = config.stats || [];
+async function refreshStats(id, specs, whereSql, params) {
   if (!specs.length) return;
   const sql = 'SELECT ' + specs.map((s, i) => '(' + s.expr + ') AS s' + i).join(', ') + ' FROM t' + whereSql;
   const rows = await runQuery(sql, params);
   if (id !== latest) return;
   specs.forEach((s, i) => {
     const node = el('stat' + i);
-    const text = statText(rows[0]['s' + i]);
+    const text = statText(s, rows[0]['s' + i]);
     node.textContent = text;
     node.classList.toggle('text', text.length > 12);
   });
 }
 
-function chartColors() {
-  const css = getComputedStyle(document.documentElement);
-  const get = (name) => css.getPropertyValue(name).trim();
-  return { bar: get('--chart-bar'), hover: get('--chart-bar-hover'), grid: get('--chart-grid'), tick: get('--chart-tick') };
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 function themeChart(o) {
-  const c = chartColors();
-  const ds = o.chart.data.datasets[0];
-  ds.backgroundColor = c.bar;
-  ds.hoverBackgroundColor = c.hover;
+  const grid = cssVar('--chart-grid');
+  const tick = cssVar('--chart-tick');
   const { x, y } = o.chart.options.scales;
-  x.ticks.color = y.ticks.color = c.tick;
-  (o.spec.type === 'top' ? x : y).grid.color = c.grid;
+  x.ticks.color = y.ticks.color = tick;
+  const horizontal = o.chart.options.indexAxis === 'y';
+  (horizontal ? x : y).grid.color = grid;
+  if (o.spec.type === 'stack') {
+    o.chart.options.plugins.legend.labels.color = cssVar('--color-text');
+    o.chart.data.datasets.forEach((ds) => {
+      const other = ds.label === 'Other' || ds.label === '(blank)';
+      ds.backgroundColor = other ? cssVar('--series-other') : cssVar('--series-' + (ds.colorSlot + 1));
+      ds.borderColor = cssVar('--color-bg');
+    });
+  } else {
+    const ds = o.chart.data.datasets[0];
+    ds.backgroundColor = cssVar('--chart-bar');
+    ds.hoverBackgroundColor = cssVar('--chart-bar-hover');
+  }
   o.chart.update('none');
 }
 
@@ -728,42 +993,42 @@ function applyChartThemes() {
   for (const o of charts) themeChart(o);
 }
 
-function buildCharts() {
+function destroyCharts() {
+  for (const o of charts) o.chart.destroy();
+  charts.length = 0;
+}
+
+function buildCharts(specs) {
   const host = el('charts');
   host.replaceChildren();
-  charts.length = 0;
-  const specs = config.charts || [];
+  destroyCharts();
   if (!specs.length) return;
   if (typeof Chart === 'undefined') throw new Error('Chart.js did not load.');
   for (const spec of specs) {
-    const horizontal = spec.type === 'top';
-    const card = document.createElement('div');
-    card.className = 'chart-card';
-    const h = document.createElement('h3');
-    h.textContent = spec.title;
-    const box = document.createElement('div');
-    box.className = 'chart-box';
+    const stack = spec.type === 'stack';
+    const timeKind = stack && (spec.kind === 'month' || spec.kind === 'year');
+    const horizontal = spec.type === 'top' || spec.type === 'items' || (stack && !timeKind);
+    const card = h('div', 'chart-card');
+    const box = h('div', 'chart-box');
     const canvas = document.createElement('canvas');
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', spec.title + ' (the table below the chart has the numbers)');
+    canvas.setAttribute('aria-label', spec.title + ' (the table under the chart has the numbers)');
     box.append(canvas);
-    const foot = document.createElement('p');
-    foot.className = 'chart-foot';
+    const foot = h('p', 'chart-foot');
     const details = document.createElement('details');
-    const sum = document.createElement('summary');
-    sum.textContent = 'Table';
-    const scroll = document.createElement('div');
-    scroll.className = 'tablescroll';
+    const scroll = h('div', 'tablescroll');
     const table = document.createElement('table');
-    const tbody = document.createElement('tbody');
-    table.append(tbody);
     scroll.append(table);
-    details.append(sum, scroll);
-    card.append(h, box, foot, details);
+    details.append(h('summary', '', 'Table'), scroll);
+    card.append(h('h3', '', spec.title), box, foot, details);
     host.append(card);
 
     const unit = spec.unit || 'rows';
-    const valueAxis = { beginAtZero: true, ticks: { precision: 0, callback: (v) => Number(v).toLocaleString() }, grid: {} };
+    const valueAxis = {
+      beginAtZero: true,
+      ticks: { precision: 0, callback: (v) => fmtNumber(spec, v) },
+      grid: {},
+    };
     const labelAxis = { ticks: { autoSkip: true, maxTicksLimit: horizontal ? 50 : 24, maxRotation: 45 }, grid: { display: false } };
     if (horizontal) {
       labelAxis.ticks.callback = function (value) {
@@ -771,6 +1036,10 @@ function buildCharts() {
         const max = Math.max(12, Math.min(34, Math.floor(this.chart.width / 17)));
         return s.length > max ? s.slice(0, max - 1) + '…' : s;
       };
+    }
+    if (stack) {
+      valueAxis.stacked = true;
+      labelAxis.stacked = true;
     }
     const chart = new Chart(canvas, {
       type: 'bar',
@@ -781,7 +1050,7 @@ function buildCharts() {
         maintainAspectRatio: false,
         animation: { duration: 150 },
         plugins: {
-          legend: { display: false },
+          legend: { display: stack, position: 'bottom', labels: { boxWidth: 12, boxHeight: 12 } },
           tooltip: {
             backgroundColor: '#2A211A',
             titleColor: '#F5EDE0',
@@ -789,37 +1058,55 @@ function buildCharts() {
             borderColor: '#3D2B1F',
             borderWidth: 1,
             callbacks: {
-              label: (ctx) => ' ' + Number(horizontal ? ctx.parsed.x : ctx.parsed.y).toLocaleString() + ' ' + unit,
+              label: (ctx) => ' ' + (stack ? ctx.dataset.label + ': ' : '') + fmtNumber(spec, horizontal ? ctx.parsed.x : ctx.parsed.y) + (spec.format ? '' : ' ' + unit),
             },
           },
         },
         scales: horizontal ? { x: valueAxis, y: labelAxis } : { x: labelAxis, y: valueAxis },
       },
     });
-    const o = { spec, chart, box, foot, tbody };
+    const o = { spec, chart, box, foot, table };
     charts.push(o);
     themeChart(o);
   }
 }
 
-function chartSql(spec, whereSql) {
+// A chart may add its own condition (spec.where) to the page's filters.
+function andWhere(spec, whereSql) {
+  if (!spec.where) return whereSql;
+  return (whereSql ? whereSql + ' AND ' : ' WHERE ') + '(' + spec.where + ')';
+}
+
+function groupSql(spec, whereSql) {
   const label = 'CAST((' + spec.label + ') AS VARCHAR)';
   const value = 'CAST((' + (spec.value || 'count(*)') + ') AS DOUBLE)';
   const order = spec.type === 'top' ? 'v DESC, l' : 'l';
-  return 'SELECT ' + label + ' AS l, ' + value + ' AS v FROM t' + whereSql + ' GROUP BY 1 ORDER BY ' + order + ' LIMIT ' + CHART_GROUP_LIMIT;
+  const having = spec.min ? ' HAVING count(*) >= ' + Number(spec.min) : '';
+  return 'SELECT ' + label + ' AS l, ' + value + ' AS v FROM t' + andWhere(spec, whereSql) + ' GROUP BY 1' + having + ' ORDER BY ' + order + ' LIMIT ' + CHART_GROUP_LIMIT;
+}
+
+function stackSql(spec, whereSql) {
+  const x = 'CAST((' + spec.x + ') AS VARCHAR)';
+  const s = 'CAST((' + spec.series + ') AS VARCHAR)';
+  const value = 'CAST((' + (spec.value || 'count(*)') + ') AS DOUBLE)';
+  return 'SELECT ' + x + ' AS x, ' + s + ' AS s, ' + value + ' AS v FROM t' + andWhere(spec, whereSql) + ' GROUP BY 1, 2 LIMIT ' + CHART_GROUP_LIMIT;
+}
+
+function itemsSql(spec, whereSql) {
+  return 'SELECT ' + spec.items.map((it, i) => 'CAST((' + it.expr + ') AS DOUBLE) AS i' + i).join(', ') + ' FROM t' + andWhere(spec, whereSql);
 }
 
 // Fill in periods with no rows so a gap in the data shows as a gap in the chart.
-function fillPeriods(spec, rows) {
-  const year = spec.type === 'year';
+function fillPeriods(kind, title, labelsIn) {
+  const year = kind === 'year';
   const pattern = year ? /^\d{4}$/ : /^\d{4}-\d{2}$/;
-  for (const r of rows) {
-    if (!pattern.test(r.l)) throw new Error('Chart "' + spec.title + '": label "' + r.l + '" is not ' + (year ? 'YYYY' : 'YYYY-MM') + '.');
+  for (const l of labelsIn) {
+    if (!pattern.test(l)) throw new Error('Chart "' + title + '": label "' + l + '" is not ' + (year ? 'YYYY' : 'YYYY-MM') + '.');
   }
-  if (!rows.length) return { labels: [], values: [] };
-  const byLabel = new Map(rows.map((r) => [r.l, Number(r.v)]));
-  const last = rows[rows.length - 1].l;
-  let [y, m] = rows[0].l.split('-').map(Number);
+  if (!labelsIn.length) return [];
+  const sorted = [...labelsIn].sort();
+  const last = sorted[sorted.length - 1];
+  let [y, m] = sorted[0].split('-').map(Number);
   const labels = [];
   for (;;) {
     const label = year ? String(y) : y + '-' + String(m).padStart(2, '0');
@@ -827,10 +1114,25 @@ function fillPeriods(spec, rows) {
     if (label === last) break;
     if (year || m === 12) { y += 1; m = 1; } else { m += 1; }
   }
-  return { labels, values: labels.map((l) => byLabel.get(l) || 0) };
+  return labels;
 }
 
-function drawChart(o, rows) {
+// A chart's numbers as a small table under it.
+function fillChartTable(o, headers, rows) {
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  for (const t of headers) hr.append(h('th', '', t));
+  thead.append(hr);
+  const tbody = document.createElement('tbody');
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    r.forEach((cell, i) => tr.append(h('td', i ? 'num' : '', cell)));
+    tbody.append(tr);
+  }
+  o.table.replaceChildren(thead, tbody);
+}
+
+function drawGroupChart(o, rows) {
   const spec = o.spec;
   const blanks = rows.filter((r) => r.l === null).reduce((n, r) => n + Number(r.v), 0);
   const kept = rows.filter((r) => r.l !== null);
@@ -843,9 +1145,11 @@ function drawChart(o, rows) {
     values = kept.slice(0, limit).map((r) => Number(r.v));
     if (kept.length > limit) foot = 'Top ' + limit + ' of ' + kept.length.toLocaleString() + '. ';
   } else {
-    ({ labels, values } = fillPeriods(spec, kept));
+    labels = fillPeriods(spec.type, spec.title, kept.map((r) => r.l));
+    const byLabel = new Map(kept.map((r) => [r.l, Number(r.v)]));
+    values = labels.map((l) => byLabel.get(l) || 0);
   }
-  if (blanks) foot += blanks.toLocaleString() + ' blank, not shown.';
+  if (blanks) foot += fmtNumber(spec, blanks) + ' blank, not shown.';
   if (!labels.length) foot = 'No rows match.';
   o.foot.textContent = foot.trim();
   o.box.style.height = spec.type === 'top' ? Math.max(90, labels.length * 26 + 40) + 'px' : '200px';
@@ -853,46 +1157,334 @@ function drawChart(o, rows) {
   o.chart.data.datasets[0].data = values;
   o.chart.update('none');
   o.chart.resize();
-  o.tbody.replaceChildren();
-  labels.forEach((l, i) => {
-    const tr = document.createElement('tr');
-    const a = document.createElement('td');
-    a.textContent = l;
-    const b = document.createElement('td');
-    b.className = 'num';
-    b.textContent = values[i].toLocaleString();
-    tr.append(a, b);
-    o.tbody.append(tr);
-  });
+  fillChartTable(o, ['', spec.unit || 'rows'], labels.map((l, i) => [l, fmtNumber(spec, values[i])]));
+}
+
+function drawItemsChart(o, row) {
+  const spec = o.spec;
+  const labels = spec.items.map((it) => it.label);
+  const values = spec.items.map((it, i) => (row['i' + i] === null ? 0 : Number(row['i' + i])));
+  o.foot.textContent = spec.note || '';
+  o.box.style.height = Math.max(90, labels.length * 26 + 40) + 'px';
+  o.chart.data.labels = labels;
+  o.chart.data.datasets[0].data = values;
+  o.chart.update('none');
+  o.chart.resize();
+  fillChartTable(o, ['', spec.unit || 'rows'], labels.map((l, i) => [l, fmtNumber(spec, values[i])]));
+}
+
+function drawStackChart(o, rows) {
+  const spec = o.spec;
+  const timeKind = spec.kind === 'month' || spec.kind === 'year';
+  const blanks = rows.filter((r) => r.x === null).reduce((n, r) => n + Number(r.v), 0);
+  const kept = rows.filter((r) => r.x !== null);
+
+  const seriesTotals = new Map();
+  for (const r of kept) {
+    const s = r.s === null ? '(blank)' : r.s;
+    seriesTotals.set(s, (seriesTotals.get(s) || 0) + Number(r.v));
+  }
+  // With spec.seriesOrder the colors belong to the names, so a filter does not
+  // repaint the series that are left. Without it, the biggest series come first.
+  const ranked = [...seriesTotals.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map((e) => e[0]);
+  const limitS = spec.seriesLimit || 5;
+  const fixed = spec.seriesOrder || null;
+  const shown = fixed ? fixed.filter((n) => seriesTotals.has(n)) : ranked.slice(0, limitS);
+  const folded = ranked.some((n) => !shown.includes(n));
+  const names = folded ? [...shown, 'Other'] : shown;
+
+  const cell = new Map();
+  const xTotals = new Map();
+  for (const r of kept) {
+    const s = r.s === null ? '(blank)' : r.s;
+    const name = shown.includes(s) ? s : 'Other';
+    const k = r.x + '\u0000' + name;
+    cell.set(k, (cell.get(k) || 0) + Number(r.v));
+    xTotals.set(r.x, (xTotals.get(r.x) || 0) + Number(r.v));
+  }
+  let xs = [];
+  let foot = '';
+  if (timeKind) {
+    xs = fillPeriods(spec.kind, spec.title, [...xTotals.keys()]);
+  } else {
+    const order = [...xTotals.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map((e) => e[0]);
+    const limit = spec.limit || 10;
+    xs = order.slice(0, limit);
+    if (order.length > limit) foot = 'Top ' + limit + ' of ' + order.length.toLocaleString() + '. ';
+  }
+  if (folded) foot += 'Smaller groups are under Other. ';
+  if (spec.note) foot += spec.note + ' ';
+  if (blanks) foot += fmtNumber(spec, blanks) + ' blank, not shown.';
+  if (!xs.length) foot = 'No rows match.';
+  o.foot.textContent = foot.trim();
+  o.box.style.height = timeKind ? '260px' : Math.max(120, xs.length * 28 + 80) + 'px';
+
+  o.chart.data.labels = xs;
+  o.chart.data.datasets = names.map((name, i) => ({
+    label: name,
+    colorSlot: fixed && fixed.includes(name) ? fixed.indexOf(name) : i,
+    data: xs.map((x) => cell.get(x + '\u0000' + name) || 0),
+    borderWidth: 2,
+    borderRadius: 0,
+    maxBarThickness: timeKind ? 28 : 22,
+  }));
+  themeChart(o);
+  o.chart.resize();
+  fillChartTable(o, [spec.xLabel || '', ...names, 'Total'], xs.map((x) => [
+    x,
+    ...names.map((name) => fmtNumber(spec, cell.get(x + '\u0000' + name) || 0)),
+    fmtNumber(spec, xTotals.get(x) || 0),
+  ]));
 }
 
 async function refreshCharts(id, whereSql, params) {
   for (const o of charts) {
-    const rows = await runQuery(chartSql(o.spec, whereSql), params);
-    if (id !== latest) return;
-    drawChart(o, rows);
+    const spec = o.spec;
+    if (spec.type === 'items') {
+      const rows = await runQuery(itemsSql(spec, whereSql), params);
+      if (id !== latest) return;
+      drawItemsChart(o, rows[0]);
+    } else if (spec.type === 'stack') {
+      const rows = await runQuery(stackSql(spec, whereSql), params);
+      if (id !== latest) return;
+      drawStackChart(o, rows);
+    } else {
+      const rows = await runQuery(groupSql(spec, whereSql), params);
+      if (id !== latest) return;
+      drawGroupChart(o, rows);
+    }
   }
+}
+
+/* ---------- pivot ---------- */
+
+function buildPivotControls() {
+  if (!config.pivot) return;
+  const row = el('pvrow');
+  const col = el('pvcol');
+  row.replaceChildren();
+  col.replaceChildren(Object.assign(h('option', '', 'None'), { value: '' }));
+  for (const k of config.pivot.columns) {
+    const label = colByKey[k].label;
+    row.append(Object.assign(h('option', '', label), { value: k }));
+    col.append(Object.assign(h('option', '', label), { value: k }));
+  }
+  const m = el('pvmeasure');
+  m.replaceChildren(Object.assign(h('option', '', 'Number of rows'), { value: 'count' }));
+  for (const x of config.pivot.measures || []) m.append(Object.assign(h('option', '', x.label), { value: x.id }));
+}
+
+function syncPivotControls() {
+  el('pvrow').value = view.pivot.row;
+  el('pvcol').value = view.pivot.col;
+  el('pvmeasure').value = view.pivot.measure;
+}
+
+function currentMeasure() {
+  if (view.pivot.measure === 'count') return { id: 'count', label: 'Rows', expr: 'count(*)' };
+  return config.pivot.measures.find((m) => m.id === view.pivot.measure);
+}
+
+async function refreshPivot(id, whereSql, params) {
+  const p = view.pivot;
+  const measure = currentMeasure();
+  const sql = 'SELECT CAST(' + qi(p.row) + ' AS VARCHAR) AS r, ' + (p.col ? 'CAST(' + qi(p.col) + ' AS VARCHAR) AS c, ' : '') +
+    'CAST((' + measure.expr + ') AS DOUBLE) AS m FROM t' + whereSql + ' GROUP BY ' + (p.col ? '1, 2' : '1') + ' LIMIT ' + (PIVOT_CELL_LIMIT + 1);
+  const rows = await runQuery(sql, params);
+  if (id !== latest) return;
+  if (rows.length > PIVOT_CELL_LIMIT) throw new Error('Too many groups to pivot. Pick fields with fewer values, or add a filter.');
+  pivotCells = { rows, measure, rowCol: colByKey[p.row], colCol: p.col ? colByKey[p.col] : null };
+  renderPivot();
+}
+
+function pivotCellText(measure, v) {
+  const n = Number(v);
+  if (measure.format === 'currency') return '$' + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function renderPivot() {
+  const { rows, measure, rowCol, colCol } = pivotCells;
+  const box = el('pvresult');
+  const blank = '(blank)';
+  const rowTotals = new Map();
+  const colTotals = new Map();
+  const cell = new Map();
+  let grand = 0;
+  for (const r of rows) {
+    const rl = r.r === null ? blank : r.r;
+    const cl = colCol ? (r.c === null ? blank : r.c) : '';
+    const v = Number(r.m);
+    rowTotals.set(rl, (rowTotals.get(rl) || 0) + v);
+    colTotals.set(cl, (colTotals.get(cl) || 0) + v);
+    cell.set(rl + '\u0000' + cl, (cell.get(rl + '\u0000' + cl) || 0) + v);
+    grand += v;
+  }
+  // Columns: the biggest few, the rest under Other.
+  let colNames = [];
+  const otherCols = new Set();
+  if (colCol) {
+    const rankedCols = [...colTotals.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map((e) => e[0]);
+    colNames = rankedCols.slice(0, PIVOT_COLS);
+    for (const c of rankedCols.slice(PIVOT_COLS)) otherCols.add(c);
+    if (otherCols.size) colNames.push('Other');
+  }
+  const cellValue = (rl, cn) => {
+    if (cn !== 'Other' || !otherCols.size) return cell.get(rl + '\u0000' + cn) || 0;
+    let s = 0;
+    for (const c of otherCols) s += cell.get(rl + '\u0000' + c) || 0;
+    return s;
+  };
+
+  // Rows: the biggest PIVOT_ROWS, then the user's sort.
+  const rowOrder = [...rowTotals.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const capped = rowOrder.length > PIVOT_ROWS;
+  let list = rowOrder.slice(0, PIVOT_ROWS).map((e) => e[0]);
+  const sort = view.pivot.sort;
+  const sign = sort.dir === 'asc' ? 1 : -1;
+  const sortVal = (rl) => {
+    if (sort.key === '__total') return rowTotals.get(rl);
+    if (colNames.includes(sort.key)) return cellValue(rl, sort.key);
+    return rowTotals.get(rl);
+  };
+  list.sort((a, b) => {
+    if (sort.key === '__row') return sign * a.localeCompare(b);
+    return sign * (sortVal(a) - sortVal(b)) || a.localeCompare(b);
+  });
+
+  let max = 0;
+  for (const rl of list) {
+    if (colCol) for (const cn of colNames) max = Math.max(max, cellValue(rl, cn));
+    else max = Math.max(max, rowTotals.get(rl));
+  }
+  const heat = (td, v) => {
+    if (!max || !v) return;
+    const pct = Math.round(6 + 56 * Math.sqrt(v / max));
+    td.style.background = 'color-mix(in srgb, var(--color-accent) ' + pct + '%, transparent)';
+  };
+
+  const table = h('table', 'pivot-table');
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  const headCell = (label, key, num) => {
+    const th = h('th', num ? 'num' : '', label);
+    th.dataset.sort = key;
+    th.tabIndex = 0;
+    if (sort.key === key) th.setAttribute('aria-sort', sort.dir === 'asc' ? 'ascending' : 'descending');
+    hr.append(th);
+  };
+  headCell(rowCol.label, '__row', false);
+  if (colCol) for (const cn of colNames) headCell(cn, cn, true);
+  headCell(colCol ? 'Total' : measure.label, '__total', true);
+  if (!colCol) hr.append(h('th', 'num', 'Share'));
+  thead.append(hr);
+
+  const tbody = document.createElement('tbody');
+  const shown = [];
+  for (const rl of list) {
+    const tr = document.createElement('tr');
+    tr.append(h('td', '', rl));
+    const line = [rl];
+    if (colCol) {
+      for (const cn of colNames) {
+        const v = cellValue(rl, cn);
+        const td = h('td', 'num', v ? pivotCellText(measure, v) : '');
+        heat(td, v);
+        tr.append(td);
+        line.push(v);
+      }
+    }
+    const tv = rowTotals.get(rl);
+    const tt = h('td', 'num total', pivotCellText(measure, tv));
+    if (!colCol) heat(tt, tv);
+    tr.append(tt);
+    line.push(tv);
+    if (!colCol) {
+      const share = grand ? (100 * tv) / grand : 0;
+      tr.append(h('td', 'num', share.toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%'));
+      line.push(Math.round(share * 10) / 10);
+    }
+    tbody.append(tr);
+    shown.push(line);
+  }
+  const foot = document.createElement('tfoot');
+  const fr = document.createElement('tr');
+  fr.append(h('td', '', 'All rows'));
+  const allLine = ['All rows'];
+  if (colCol) {
+    for (const cn of colNames) {
+      let s = 0;
+      if (cn === 'Other') for (const c of otherCols) s += colTotals.get(c) || 0;
+      else s = colTotals.get(cn) || 0;
+      fr.append(h('td', 'num', pivotCellText(measure, s)));
+      allLine.push(s);
+    }
+  }
+  fr.append(h('td', 'num total', pivotCellText(measure, grand)));
+  allLine.push(grand);
+  if (!colCol) {
+    fr.append(h('td', 'num', '100%'));
+    allLine.push(100);
+  }
+  foot.append(fr);
+  shown.push(allLine);
+  table.append(thead, tbody, foot);
+  box.replaceChildren(table);
+
+  const headers = [rowCol.label, ...(colCol ? colNames : []), colCol ? 'Total' : measure.label, ...(colCol ? [] : ['Share %'])];
+  pivotShown = { headers, lines: shown };
+  const notes = [];
+  if (capped) notes.push('Top ' + PIVOT_ROWS + ' of ' + rowOrder.length.toLocaleString() + ' rows by total. "All rows" counts every row.');
+  if (otherCols.size) notes.push('Top ' + PIVOT_COLS + ' of ' + colTotals.size.toLocaleString() + ' columns. The rest are under Other.');
+  if (!rows.length) notes.push('No rows match.');
+  el('pvnote').textContent = notes.join(' ');
+}
+
+function downloadPivot() {
+  if (!pivotShown) return;
+  const lines = [pivotShown.headers.map(csvField).join(',')];
+  for (const l of pivotShown.lines) lines.push(l.map(csvField).join(','));
+  const url = URL.createObjectURL(new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/csv' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = config.id + '-pivot.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /* ---------- refresh ---------- */
 
+// A list page is ready when data-loading is 0 (the tests wait for it).
 async function refresh() {
   const id = ++latest;
+  el('listpane').dataset.loading = '1';
+  await refreshBody(id);
+  if (id === latest) el('listpane').dataset.loading = '0';
+}
+
+async function refreshBody(id) {
   const { sql, params } = buildWhere();
   const count = await runQuery('SELECT count(*) AS n FROM t' + sql, params);
   if (id !== latest) return;
   total = Number(count[0].n);
-  const size = config.pageSize;
-  view.page = Math.min(view.page, Math.max(1, Math.ceil(total / size)));
-  const rows = await runQuery(
-    'SELECT ' + selectList() + ' FROM t' + sql + orderBy() + ' LIMIT ' + size + ' OFFSET ' + (view.page - 1) * size,
-    params
-  );
-  if (id !== latest) return;
-  renderGrid(rows);
-  renderSummary();
+  const vw = activeView();
+  if (vw.table) {
+    view.page = Math.min(view.page, Math.max(1, Math.ceil(total / view.size)));
+    const rows = await runQuery(
+      'SELECT ' + selectList() + ' FROM t' + sql + ' ORDER BY ' + orderBody() + ' LIMIT ' + view.size + ' OFFSET ' + (view.page - 1) * view.size,
+      params
+    );
+    if (id !== latest) return;
+    renderGrid(rows);
+    renderPager();
+  }
+  renderMatchBar();
   showNotices();
-  await refreshStats(id, sql, params);
+  if (vw.pivot) {
+    await refreshPivot(id, sql, params);
+    return;
+  }
+  await refreshStats(id, vw.stats || [], sql, params);
   await refreshCharts(id, sql, params);
 }
 
@@ -902,46 +1494,269 @@ function update(push) {
   refresh().catch(fail);
 }
 
-/* ---------- detail panel ---------- */
+/* ---------- list page ---------- */
 
-async function showDetail(keyValue) {
-  const rows = await runQuery('SELECT ' + selectList() + ' FROM t WHERE ' + qi(config.key) + ' = ?', [keyValue]);
-  if (!rows.length) {
-    notices.push('No row has the key "' + keyValue + '".');
-    view.open = null;
-    writeURL(false);
-    showNotices();
+async function showList() {
+  el('recordpane').hidden = true;
+  el('listpane').hidden = false;
+  if (!listBuilt) {
+    await materializeIfNeeded();
+    busy('Reading filter values…');
+    await loadFacets();
+    buildToolbar();
+    buildFilterColumnList();
+    buildTableHead();
+    buildPivotControls();
+    el('pagesize').replaceChildren(...pageSizes().map((n) => Object.assign(h('option', '', String(n)), { value: String(n) })));
+    listBuilt = true;
+    clearInterval(ticker);
+  }
+  const vw = activeView();
+  renderTabs();
+  renderHeading();
+  el('tablesection').hidden = !vw.table;
+  el('pivotsection').hidden = !vw.pivot;
+  el('viewpane').hidden = !!vw.pivot;
+  if (!vw.pivot) {
+    buildStats(vw.stats || []);
+    buildCharts(vw.charts || []);
+  } else {
+    destroyCharts();
+    syncPivotControls();
+  }
+  syncControls();
+  setStatus('');
+  await refresh();
+}
+
+/* ---------- record page ---------- */
+
+async function recordNeighbors(key) {
+  if (!view.back) return { prev: null, next: null };
+  const { sql, params } = buildWhere();
+  const order = orderBody();
+  const rows = await runQuery(
+    'SELECT p, n FROM (SELECT CAST(' + qi(config.key) + ' AS VARCHAR) AS k, lag(CAST(' + qi(config.key) + ' AS VARCHAR)) OVER (ORDER BY ' + order +
+    ') AS p, lead(CAST(' + qi(config.key) + ' AS VARCHAR)) OVER (ORDER BY ' + order + ') AS n FROM t' + sql + ') WHERE k = ?',
+    [...params, key]
+  );
+  return rows.length ? { prev: rows[0].p, next: rows[0].n } : { prev: null, next: null };
+}
+
+function copyButton(getText) {
+  const b = h('button', 'copy', 'Copy');
+  b.type = 'button';
+  b.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(getText());
+      b.textContent = 'Copied';
+    } catch (e) {
+      console.error(e);
+      b.textContent = 'Could not copy';
+    }
+    setTimeout(() => { b.textContent = 'Copy'; }, 1500);
+  });
+  return b;
+}
+
+function recordCard(title) {
+  const card = h('section', 'rec-card');
+  card.append(h('h2', '', title));
+  return card;
+}
+
+async function showRelated(card, rel, row) {
+  const values = rel.cols.map((k) => row[k]);
+  if (values.some((v) => v === null || v === undefined || v === '')) return;
+  const where = rel.cols.map((k) => 'CAST(' + qi(k) + ' AS VARCHAR) = ?').join(' AND ') + ' AND CAST(' + qi(config.key) + ' AS VARCHAR) <> ?';
+  const params = [...values.map(String), String(row[config.key])];
+  const count = await runQuery('SELECT count(*) AS n FROM t WHERE ' + where, params);
+  const n = Number(count[0].n);
+  if (!n) return;
+  const limit = rel.limit || 8;
+  const rows = await runQuery('SELECT ' + selectList() + ' FROM t WHERE ' + where + ' ORDER BY ' + orderBody() + ' LIMIT ' + limit, params);
+  const head = h('h3', '', rel.label + ' (' + n.toLocaleString() + ')');
+  const list = h('ul', 'rel-list');
+  for (const r of rows) {
+    const li = document.createElement('li');
+    const a = h('a', '', fill(rel.title, r) || String(r[config.key]));
+    a.href = recordUrl(r[config.key]);
+    a.dataset.soft = '1';
+    li.append(a);
+    const sub = rel.sub ? fill(rel.sub, r) : '';
+    if (sub) li.append(h('span', 'sub', sub));
+    list.append(li);
+  }
+  card.append(head, list);
+  if (n > rows.length) card.append(h('p', 'summary', 'Showing ' + rows.length + ' of ' + n.toLocaleString() + '.'));
+}
+
+// Optional extra tables for a record (J&A attachments): loaded on request,
+// because they are large files.
+function moreBlock(spec, row) {
+  const card = recordCard(spec.label);
+  const out = h('div', 'more-out');
+  const btn = h('button', '', spec.button || 'Load');
+  btn.type = 'button';
+  card.append(h('p', 'summary', spec.hint || ''), btn, out);
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    out.replaceChildren(h('p', 'summary', 'Reading…'));
+    try {
+      const name = 'more_' + spec.id + '.parquet';
+      await db.registerFileURL(name, spec.url, duckdb.DuckDBDataProtocol.HTTP, false);
+      const cols = spec.columns.map((c) => qi(c.key)).concat(spec.text ? [qi(spec.text)] : []);
+      const rows = await runQuery(
+        'SELECT ' + cols.join(', ') + " FROM read_parquet('" + name + "') WHERE CAST(" + qi(spec.where) + ' AS VARCHAR) = ? ORDER BY 1',
+        [String(row[spec.value || config.key])]
+      );
+      out.replaceChildren();
+      if (!rows.length) out.append(h('p', 'summary', 'Nothing found.'));
+      for (const r of rows) {
+        const item = h('div', 'more-item');
+        item.append(h('h3', '', String(r[spec.columns[0].key] === null ? '' : r[spec.columns[0].key])));
+        const dl = h('dl', 'fields');
+        for (const c of spec.columns.slice(1)) {
+          const dd = h('dd', r[c.key] === null || r[c.key] === '' ? 'empty' : '', r[c.key] === null || r[c.key] === '' ? '—' : String(r[c.key]));
+          dl.append(h('dt', '', c.label), dd);
+        }
+        item.append(dl);
+        if (spec.text && r[spec.text]) {
+          const det = document.createElement('details');
+          det.append(h('summary', '', 'Extracted text'));
+          det.append(h('pre', 'longtext', String(r[spec.text])));
+          item.append(det);
+        }
+        out.append(item);
+      }
+    } catch (e) {
+      console.error(e);
+      out.replaceChildren(h('p', 'msg error', 'Could not load: ' + e.message));
+      btn.disabled = false;
+    }
+  });
+  return card;
+}
+
+async function showRecord() {
+  el('listpane').hidden = true;
+  el('recordpane').hidden = false;
+  el('viewtabs').hidden = true;
+  el('blurb').replaceChildren('Record');
+  const box = el('recordpane');
+  box.replaceChildren();
+  const rec = config.record;
+  const backHref = '?d=' + config.id + (view.back ? '&' + view.back : '');
+  const back = h('a', 'back-link', '← Back to results');
+  back.href = backHref;
+  back.dataset.soft = '1';
+
+  const key = view.record;
+  const found = key
+    ? await runQuery('SELECT ' + selectList() + ' FROM t WHERE CAST(' + qi(rec.key) + ' AS VARCHAR) = ? LIMIT 2', [key])
+    : [];
+  setStatus('');
+  if (!found.length) {
+    document.title = config.title;
+    box.append(back, h('h2', 'rec-missing', key ? 'No record with that key' : 'No record key in the link'));
+    if (key) box.append(h('p', 'summary', 'Key: ' + key));
+    box.append(h('p', 'summary', 'The record may have been removed, or the link is incomplete.'));
     return;
   }
-  const row = rows[0];
-  const detail = config.detail || {};
-  el('dtitle').textContent = detail.title ? fill(detail.title, row) : String(row[config.key]);
+  const row = found[0];
+  const title = fillFirst(rec.title, row) || String(row[rec.key]);
+  document.title = title + ' · ' + config.title;
 
-  const links = el('dlinks');
-  links.replaceChildren();
-  for (const l of detail.links || []) {
-    if (l.showIf && String(row[l.showIf.col]) !== l.showIf.equals) continue;
+  const nav = h('div', 'rec-nav');
+  nav.append(back);
+  const sibling = h('span', 'rec-sib');
+  nav.append(sibling);
+  box.append(nav);
+  box.append(h('h2', 'rec-title', title));
+  if (rec.subtitle) {
+    const sub = fill(rec.subtitle, row).replace(/^[\s·]+|[\s·]+$/g, '');
+    if (sub) box.append(h('p', 'site-subtitle', sub));
+  }
+  if (found.length > 1) box.append(h('p', 'msg warn', 'More than one row has this key. Showing the first.'));
+
+  const grid = h('div', 'rec-grid');
+  for (const sec of rec.sections) {
+    const card = recordCard(sec.title);
+    const dl = h('dl', 'fields');
+    for (const k of sec.columns) {
+      const c = colByKey[k];
+      const text = formatValue(c, row[k]);
+      const dt = h('dt', '', c.label);
+      if (c.help) dt.title = c.help;
+      const dd = h('dd', text ? '' : 'empty');
+      const href = c.link && text ? safeHref(fill(c.link, row)) : null;
+      if (href) {
+        const a = h('a', '', text);
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        dd.append(a);
+      } else {
+        dd.textContent = text || '—';
+      }
+      dl.append(dt, dd);
+    }
+    card.append(dl);
+    grid.append(card);
+  }
+  const links = [];
+  for (const l of rec.links || []) {
+    if (l.showIf && l.showIf.equals !== undefined && String(row[l.showIf.col]) !== l.showIf.equals) continue;
+    if (l.showIf && l.showIf.min !== undefined && !(Number(row[l.showIf.col]) >= l.showIf.min)) continue;
     const href = safeHref(fill(l.href, row));
-    if (!href) continue;
-    const a = document.createElement('a');
-    a.href = href;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.textContent = l.label;
-    links.append(a);
+    if (href) links.push({ label: l.label, href });
   }
+  if (links.length) {
+    const card = recordCard('Source');
+    const list = h('ul', 'rel-list');
+    for (const l of links) {
+      const li = document.createElement('li');
+      const a = h('a', '', l.label);
+      a.href = l.href;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      li.append(a);
+      list.append(li);
+    }
+    card.append(list);
+    grid.append(card);
+  }
+  box.append(grid);
 
-  const body = el('dbody');
-  body.replaceChildren();
-  for (const c of config.columns) {
-    const dt = document.createElement('dt');
-    dt.textContent = c.label;
-    if (c.help) dt.title = c.help;
-    const dd = document.createElement('dd');
-    dd.textContent = formatValue(c, row[c.key]) || '—';
-    body.append(dt, dd);
+  for (const t of rec.text || []) {
+    const card = recordCard(t.label);
+    const value = row[t.column];
+    if (value === null || value === '') {
+      card.append(h('p', 'summary', '—'));
+    } else {
+      card.querySelector('h2').after(copyButton(() => String(value)));
+      card.append(h('pre', 'longtext', String(value)));
+    }
+    box.append(card);
   }
-  if (!el('detail').open) el('detail').showModal();
+  for (const m of rec.more || []) box.append(moreBlock(m, row));
+
+  const related = recordCard('Related');
+  box.append(related);
+  const relBox = related;
+  related.hidden = true;
+  const neighbors = recordNeighbors(String(row[rec.key]));
+  await Promise.all((rec.related || []).map((r) => showRelated(relBox, r, row)));
+  related.hidden = related.children.length < 2;
+
+  const nb = await neighbors;
+  for (const [label, k] of [['← Previous', nb.prev], ['Next →', nb.next]]) {
+    if (!k) continue;
+    const a = h('a', '', label);
+    a.href = recordUrl(k);
+    a.dataset.soft = '1';
+    sibling.append(a);
+  }
 }
 
 /* ---------- export ---------- */
@@ -959,7 +1774,7 @@ async function exportCsv() {
     setStatus(n.toLocaleString() + ' rows is over the ' + EXPORT_LIMIT.toLocaleString() + ' export limit. Filter first.', 'warn');
     return;
   }
-  const rows = await runQuery('SELECT ' + selectList() + ' FROM t' + sql + orderBy(), params);
+  const rows = await runQuery('SELECT ' + selectList() + ' FROM t' + sql + ' ORDER BY ' + orderBody(), params);
   const lines = [config.columns.map((c) => csvField(c.key)).join(',')];
   for (const r of rows) lines.push(config.columns.map((c) => csvField(r[c.key])).join(','));
   const url = URL.createObjectURL(new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/csv' }));
@@ -994,11 +1809,14 @@ function wire() {
     typingTimer = setTimeout(() => update(false), 250);
   });
 
-  el('addfilter').addEventListener('click', () => openFilter(null));
+  el('addfilter').addEventListener('click', () => {
+    if (el('filterpop').hidden) openFilter(null, el('addfilter'));
+    else closeFilter(true);
+  });
   el('chips').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-act]');
     if (!b) return;
-    if (b.dataset.act === 'edit') openFilter(b.dataset.key);
+    if (b.dataset.act === 'edit') openFilter(b.dataset.key, b);
     if (b.dataset.act === 'remove') removeFilter(b.dataset.key);
     if (b.dataset.act === 'clear') {
       view.q = '';
@@ -1013,11 +1831,49 @@ function wire() {
     const needle = e.target.value.toLowerCase();
     for (const lab of el('fdbody').querySelectorAll('.opts label')) lab.hidden = !lab.textContent.toLowerCase().includes(needle);
   });
+  el('fdbody').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') applyFilter();
+  });
+  el('filterpop').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeFilter(true);
+  });
   el('fdapply').addEventListener('click', applyFilter);
-  el('fdcancel').addEventListener('click', () => el('filterdlg').close());
+  el('fdcancel').addEventListener('click', () => closeFilter(true));
   el('fdremove').addEventListener('click', () => {
-    el('filterdlg').close();
-    removeFilter(el('fdcol').value);
+    const key = el('fdcol').value;
+    closeFilter(true);
+    removeFilter(key);
+  });
+  document.addEventListener('click', (e) => {
+    if (el('filterpop').hidden) return;
+    if (e.target.closest('#filterpop, #addfilter, .filter-chip-edit')) return;
+    closeFilter(false);
+  });
+
+  // Links marked data-soft change the page without reloading the database.
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-soft]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    go(a.getAttribute('href'));
+  });
+
+  el('viewtabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-view]');
+    if (b && b.dataset.view !== view.v) setView(b.dataset.view);
+  });
+  el('viewtabs').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const ids = config.viewList.map((v) => v.id);
+    const next = ids[(ids.indexOf(view.v) + (e.key === 'ArrowRight' ? 1 : ids.length - 1)) % ids.length];
+    setView(next);
+    setTimeout(() => {
+      const b = el('viewtabs').querySelector('[aria-selected="true"]');
+      if (b) b.focus();
+    }, 0);
+  });
+  el('matchbar').addEventListener('click', (e) => {
+    if (e.target.closest('button[data-act="rows"]')) setView(config.viewList[0].id);
   });
 
   el('grid').tHead.addEventListener('click', (e) => {
@@ -1027,20 +1883,44 @@ function wire() {
     view.page = 1;
     update(true);
   });
-
   el('grid').tBodies[0].addEventListener('click', (e) => {
     if (e.target.closest('a')) return;
     const tr = e.target.closest('tr');
-    if (!tr) return;
-    view.open = tr.dataset.key;
-    writeURL(true);
-    showDetail(view.open).catch(fail);
+    if (tr) go(recordUrl(tr.dataset.key));
   });
 
-  el('first').addEventListener('click', () => { view.page = 1; update(true); });
-  el('prev').addEventListener('click', () => { view.page -= 1; update(true); });
-  el('next').addEventListener('click', () => { view.page += 1; update(true); });
-  el('last').addEventListener('click', () => { view.page = Math.ceil(total / config.pageSize); update(true); });
+  el('pager').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-page]');
+    if (!b || b.disabled) return;
+    view.page = Number(b.dataset.page);
+    update(true);
+  });
+  el('pagesize').addEventListener('change', (e) => {
+    view.size = Number(e.target.value);
+    view.page = 1;
+    update(true);
+  });
+
+  for (const id of ['pvrow', 'pvcol', 'pvmeasure']) {
+    el(id).addEventListener('change', () => {
+      view.pivot.row = el('pvrow').value;
+      view.pivot.col = el('pvcol').value === view.pivot.row ? '' : el('pvcol').value;
+      view.pivot.measure = el('pvmeasure').value;
+      view.pivot.sort = { key: '__total', dir: 'desc' };
+      syncPivotControls();
+      update(true);
+    });
+  }
+  el('pvresult').addEventListener('click', (e) => {
+    const th = e.target.closest('th[data-sort]');
+    if (!th) return;
+    const key = th.dataset.sort;
+    const same = view.pivot.sort.key === key;
+    view.pivot.sort = { key, dir: same ? (view.pivot.sort.dir === 'asc' ? 'desc' : 'asc') : key === '__row' ? 'asc' : 'desc' };
+    writeURL(false);
+    renderPivot();
+  });
+  el('pvcsv').addEventListener('click', downloadPivot);
 
   el('copy').addEventListener('click', async () => {
     try {
@@ -1050,22 +1930,13 @@ function wire() {
       setStatus('Could not copy. The address bar has the link.', 'warn');
     }
   });
-  el('csv').addEventListener('click', () => exportCsv().catch(fail));
-
-  el('dclose').addEventListener('click', () => el('detail').close());
-  el('detail').addEventListener('close', () => {
-    if (!view.open) return;
-    view.open = null;
-    writeURL(false);
+  el('csv').addEventListener('click', () => {
+    if (view.v === 'pivot') downloadPivot();
+    else exportCsv().catch(fail);
   });
 
   window.addEventListener('popstate', () => {
-    if (!config) return;
-    readURL();
-    syncControls();
-    refresh().catch(fail);
-    if (view.open) showDetail(view.open).catch(fail);
-    else if (el('detail').open) el('detail').close();
+    if (config) route().catch(fail);
   });
 
   el('theme').addEventListener('click', () => {
@@ -1084,6 +1955,13 @@ function wire() {
 
 /* ---------- start ---------- */
 
+async function route() {
+  closeFilter(false);
+  readState(new URLSearchParams(location.search));
+  if (view.record !== null) await showRecord();
+  else await showList();
+}
+
 function findEntry(index, id) {
   const want = String(id || '').trim().toLowerCase();
   return index.find((d) => d.id === want || (d.aliases || []).includes(want));
@@ -1093,22 +1971,15 @@ function renderNav(index, current) {
   const nav = el('nav');
   nav.replaceChildren('Datasets: ');
   index.forEach((d, i) => {
-    if (i) {
-      const sep = document.createElement('span');
-      sep.className = 'sep';
-      sep.textContent = '·';
-      nav.append(sep);
-    }
+    if (i) nav.append(h('span', 'sep', '·'));
     if (d.id === current) {
-      const here = document.createElement('span');
+      const here = h('span', '', d.title);
       here.setAttribute('aria-current', 'page');
-      here.textContent = d.title;
       nav.append(here);
       return;
     }
-    const a = document.createElement('a');
+    const a = h('a', '', d.title);
     a.href = '?d=' + d.id;
-    a.textContent = d.title;
     nav.append(a);
   });
 }
@@ -1118,12 +1989,9 @@ function renderHome(index) {
   list.replaceChildren();
   for (const d of index) {
     const li = document.createElement('li');
-    const a = document.createElement('a');
+    const a = h('a', '', d.title);
     a.href = '?d=' + d.id;
-    a.textContent = d.title;
-    const p = document.createElement('p');
-    p.textContent = d.blurb;
-    li.append(a, p);
+    li.append(a, h('p', '', d.blurb));
     list.append(li);
   }
   el('home').hidden = false;
@@ -1132,19 +2000,13 @@ function renderHome(index) {
 function renderHeader() {
   document.title = config.title;
   el('title').textContent = config.title;
-  el('blurb').textContent = config.blurb || '';
   el('covers').textContent = config.covers;
-  for (const text of config.caveats || []) {
-    const li = document.createElement('li');
-    li.textContent = text;
-    el('caveats').append(li);
-  }
+  for (const text of config.caveats || []) el('caveats').append(h('li', '', text));
   for (const l of config.links || []) {
-    const a = document.createElement('a');
+    const a = h('a', '', l.label);
     a.href = l.href;
     a.target = '_blank';
     a.rel = 'noopener';
-    a.textContent = l.label;
     el('links').append(a);
   }
   el('explorer').hidden = false;
@@ -1182,22 +2044,11 @@ async function start() {
   await startDuckDB();
   busy('Opening the table…');
   await createView();
-  busy('Reading filter values…');
-  await loadFacets();
-  readURL();
-  buildToolbar();
-  buildFilterColumnList();
-  buildTableHead();
-  buildStats();
-  buildCharts();
-  syncControls();
-  el('controls').hidden = false;
   clearInterval(ticker);
   setStatus('');
-  await refresh();
+  await route();
   console.info('opened ' + config.id + ' in ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s');
   await showAsOf();
-  if (view.open) await showDetail(view.open);
 }
 
 start().catch(fail);

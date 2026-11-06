@@ -36,15 +36,6 @@
   "dir": "desc"
  },
  "pageSize": 50,
- "detail": {
-  "title": "{file_name}",
-  "links": [
-   {
-    "label": "Open the file on eeoc.gov",
-    "href": "{url}"
-   }
-  ]
- },
  "columns": [
   {
    "key": "url",
@@ -62,8 +53,7 @@
   {
    "key": "file_name",
    "label": "File",
-   "type": "text",
-   "link": "{url}"
+   "type": "text"
   },
   {
    "key": "ext",
@@ -112,35 +102,224 @@
    "label": "Position first seen",
    "type": "number",
    "show": false
+  },
+  {
+   "key": "posted_year",
+   "label": "Posted year",
+   "type": "text",
+   "show": false,
+   "expr": "NULLIF(substr(CAST(posted_folder_date AS VARCHAR), 1, 4), '')"
+  },
+  {
+   "key": "posted_month",
+   "label": "Posted month",
+   "type": "text",
+   "show": false,
+   "expr": "NULLIF(substr(CAST(posted_folder_date AS VARCHAR), 1, 7), '')"
+  },
+  {
+   "key": "first_seen_month",
+   "label": "First seen month",
+   "type": "text",
+   "show": false,
+   "expr": "NULLIF(substr(CAST(first_seen AS VARCHAR), 1, 7), '')"
   }
  ],
- "stats": [
+ "views": [
   {
+   "id": "table",
    "label": "Files",
-   "expr": "count(*)"
+   "subtitle": "Every file EEOC lists on its appeals page.",
+   "stats": [
+    {
+     "label": "Files",
+     "expr": "count(*)"
+    },
+    {
+     "label": "File types",
+     "expr": "count(DISTINCT ext)"
+    },
+    {
+     "label": "Posted",
+     "expr": "strftime(min(posted_folder_date), '%Y-%m') || ' to ' || strftime(max(posted_folder_date), '%Y-%m')"
+    }
+   ],
+   "charts": [
+    {
+     "type": "month",
+     "title": "By month",
+     "label": "strftime(posted_folder_date, '%Y-%m')",
+     "unit": "files"
+    },
+    {
+     "type": "top",
+     "title": "File types",
+     "label": "ext",
+     "unit": "files",
+     "limit": 10
+    }
+   ]
   },
   {
-   "label": "File types",
-   "expr": "count(DISTINCT ext)"
+   "id": "coverage",
+   "label": "Coverage",
+   "subtitle": "Files by posting month. Gaps are real.",
+   "stats": [
+    {
+     "label": "Files",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Dated",
+     "expr": "count(posted_folder_date)",
+     "hint": "Files with a posting date in the folder name."
+    },
+    {
+     "label": "Undated",
+     "expr": "count(*) FILTER (WHERE posted_folder_date IS NULL)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "stack",
+     "title": "Files by month and type",
+     "x": "posted_month",
+     "series": "ext",
+     "kind": "month",
+     "seriesLimit": 3,
+     "unit": "files",
+     "seriesOrder": [
+      ".txt",
+      ".pdf",
+      ".docx"
+     ]
+    },
+    {
+     "type": "year",
+     "title": "Files by year",
+     "label": "posted_year",
+     "unit": "files"
+    },
+    {
+     "type": "items",
+     "title": "Dated and undated",
+     "unit": "files",
+     "items": [
+      {
+       "label": "Dated",
+       "expr": "count(posted_folder_date)"
+      },
+      {
+       "label": "Undated",
+       "expr": "count(*) FILTER (WHERE posted_folder_date IS NULL)"
+      }
+     ]
+    }
+   ]
   },
   {
-   "label": "Posted",
-   "expr": "strftime(min(posted_folder_date), '%Y-%m') || ' to ' || strftime(max(posted_folder_date), '%Y-%m')"
+   "id": "crawl",
+   "label": "Crawl",
+   "subtitle": "When each link was first seen.",
+   "stats": [
+    {
+     "label": "Files",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Crawl days",
+     "expr": "count(DISTINCT first_seen)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "month",
+     "title": "First seen by month",
+     "label": "first_seen_month",
+     "unit": "files"
+    },
+    {
+     "type": "top",
+     "title": "First seen, by day",
+     "label": "CAST(first_seen AS VARCHAR)",
+     "unit": "files",
+     "limit": 10
+    }
+   ]
   }
  ],
- "charts": [
-  {
-   "type": "month",
-   "title": "By month",
-   "label": "strftime(posted_folder_date, '%Y-%m')",
-   "unit": "files"
-  },
-  {
-   "type": "top",
-   "title": "File types",
-   "label": "ext",
-   "unit": "files",
-   "limit": 10
-  }
- ]
+ "pivot": {
+  "default": "ext",
+  "columns": [
+   "ext",
+   "posted_year",
+   "posted_month",
+   "first_seen_month",
+   "numbers_loose_rule"
+  ],
+  "measures": []
+ },
+ "record": {
+  "key": "url",
+  "title": "{file_name}",
+  "subtitle": "{ext} · {posted_folder_date}",
+  "sections": [
+   {
+    "title": "File",
+    "columns": [
+     "file_name",
+     "ext",
+     "folder",
+     "posted_folder_date",
+     "first_seen"
+    ]
+   },
+   {
+    "title": "Case numbers",
+    "columns": [
+     "numbers",
+     "numbers_loose",
+     "numbers_loose_rule"
+    ]
+   },
+   {
+    "title": "Listing",
+    "columns": [
+     "url",
+     "page",
+     "position"
+    ]
+   }
+  ],
+  "links": [
+   {
+    "label": "File on eeoc.gov",
+    "href": "{url}"
+   },
+   {
+    "label": "Dataset card",
+    "href": "https://huggingface.co/datasets/abigailhaddad/eeoc-appellate-decisions"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same case number",
+    "cols": [
+     "numbers"
+    ],
+    "title": "{file_name}",
+    "sub": "{posted_folder_date}",
+    "limit": 8
+   },
+   {
+    "label": "Same posting folder",
+    "cols": [
+     "folder"
+    ],
+    "title": "{file_name}",
+    "sub": "{ext}",
+    "limit": 8
+   }
+  ]
+ }
 }

@@ -40,23 +40,6 @@
   "dir": "desc"
  },
  "pageSize": 50,
- "detail": {
-  "title": "{title}",
-  "links": [
-   {
-    "label": "Notice on SAM.gov",
-    "href": "{sam_link}"
-   },
-   {
-    "label": "Saved files on Hugging Face",
-    "href": "https://huggingface.co/datasets/abigailhaddad/federal-ja-documents/tree/main/files/{notice_id:enc}"
-   },
-   {
-    "label": "Award on USAspending",
-    "href": "{usaspending_permalink}"
-   }
-  ]
- },
  "columns": [
   {
    "key": "notice_id",
@@ -73,8 +56,7 @@
   {
    "key": "title",
    "label": "Title",
-   "type": "text",
-   "link": "{sam_link}"
+   "type": "text"
   },
   {
    "key": "agency",
@@ -203,40 +185,513 @@
    "label": "Description",
    "type": "text",
    "show": false
+  },
+  {
+   "key": "extract_status",
+   "from": "status",
+   "label": "Extraction status",
+   "type": "text",
+   "show": false,
+   "filter": "select",
+   "help": "Whether the experimental extraction ran on this notice. Experimental: model-read from the documents.",
+   "join": "x"
+  },
+  {
+   "key": "authority_plain",
+   "label": "Authority (plain)",
+   "type": "text",
+   "show": false,
+   "filter": "select",
+   "help": "The legal authority cited for not competing, as a plain category. Experimental: model-read from the documents.",
+   "join": "x"
+  },
+  {
+   "key": "authority_cited",
+   "label": "Authority cited",
+   "type": "text",
+   "show": false,
+   "help": "The authority as the document states it. Experimental: model-read from the documents.",
+   "join": "x"
+  },
+  {
+   "key": "estimated_value_usd",
+   "label": "Stated value",
+   "type": "number",
+   "show": false,
+   "format": "currency",
+   "filter": "range",
+   "help": "Value stated in the document. Blank when none, or redacted. Experimental: model-read from the documents.",
+   "join": "x"
+  },
+  {
+   "key": "value_redacted",
+   "label": "Value redacted",
+   "type": "bool",
+   "show": false,
+   "filter": "select",
+   "help": "The document hides its value. Experimental: model-read from the documents.",
+   "join": "x"
+  },
+  {
+   "key": "value_basis",
+   "label": "Value covers",
+   "type": "text",
+   "show": false,
+   "help": "What the stated value covers. Experimental: model-read from the documents.",
+   "join": "x"
+  },
+  {
+   "key": "vendor",
+   "label": "Vendor",
+   "type": "text",
+   "show": false,
+   "filter": "text",
+   "help": "The proposed contractor named in the document. Experimental: model-read from the documents.",
+   "join": "x"
+  },
+  {
+   "key": "period_of_performance",
+   "label": "Period of performance",
+   "type": "text",
+   "show": false,
+   "help": "How long the work runs. Experimental: model-read from the documents.",
+   "join": "x"
+  },
+  {
+   "key": "summary_model_written",
+   "label": "Why not competed",
+   "type": "text",
+   "show": false,
+   "help": "The model's summary. Experimental: model-read from the documents.",
+   "join": "x"
+  },
+  {
+   "key": "posted_month",
+   "label": "Posted month",
+   "type": "text",
+   "show": false,
+   "expr": "NULLIF(substr(CAST(m.posted_date AS VARCHAR), 1, 7), '')"
   }
  ],
- "stats": [
+ "joins": [
   {
+   "id": "x",
+   "on": "notice_id",
+   "urls": [
+    "https://huggingface.co/datasets/abigailhaddad/federal-ja-documents/resolve/main/analysis/extractions.parquet"
+   ]
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
    "label": "Notices",
-   "expr": "count(*)"
+   "subtitle": "Justifications for skipping competition, posted on SAM.gov since 2025.",
+   "stats": [
+    {
+     "label": "Notices",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Matched",
+     "expr": "count(*) FILTER (WHERE usaspending_matched)",
+     "hint": "Notices matched to a USAspending award."
+    },
+    {
+     "label": "Posted",
+     "expr": "strftime(min(posted_date), '%Y-%m') || ' to ' || strftime(max(posted_date), '%Y-%m')"
+    }
+   ],
+   "charts": [
+    {
+     "type": "month",
+     "title": "By month",
+     "label": "strftime(posted_date, '%Y-%m')",
+     "unit": "notices"
+    },
+    {
+     "type": "top",
+     "title": "Top agencies",
+     "label": "agency",
+     "unit": "notices",
+     "limit": 10
+    }
+   ]
   },
   {
-   "label": "Agencies",
-   "expr": "count(DISTINCT agency)"
+   "id": "authority",
+   "label": "Authority",
+   "subtitle": "Why competition was skipped. Model-read.",
+   "experimental": true,
+   "stats": [
+    {
+     "label": "Notices",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Read",
+     "expr": "count(*) FILTER (WHERE extract_status = 'extracted')",
+     "hint": "Notices the extraction covers. Others are not shown in the charts."
+    },
+    {
+     "label": "Authority found",
+     "expr": "count(authority_plain)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Authority cited",
+     "label": "authority_plain",
+     "unit": "notices",
+     "limit": 8
+    },
+    {
+     "type": "stack",
+     "title": "Authority by agency",
+     "x": "agency",
+     "series": "authority_plain",
+     "kind": "category",
+     "limit": 8,
+     "seriesLimit": 4,
+     "unit": "notices",
+     "seriesOrder": [
+      "only one responsible source",
+      "simplified acquisition: only one source reasonably available",
+      "unusual and compelling urgency",
+      "exception to fair opportunity: only one source capable"
+     ],
+     "where": "authority_plain IS NOT NULL",
+     "note": "Notices with an authority read."
+    }
+   ]
   },
   {
+   "id": "value",
+   "label": "Value",
+   "subtitle": "Stated values. Many are redacted.",
+   "experimental": true,
+   "stats": [
+    {
+     "label": "Stated",
+     "expr": "count(estimated_value_usd)",
+     "hint": "Notices with a value read from the document."
+    },
+    {
+     "label": "Redacted",
+     "expr": "count(*) FILTER (WHERE value_redacted)"
+    },
+    {
+     "label": "Stated total",
+     "expr": "sum(estimated_value_usd)",
+     "format": "currency",
+     "hint": "Sum of stated values. Excludes redacted and blank."
+    }
+   ],
+   "charts": [
+    {
+     "type": "items",
+     "title": "Value found",
+     "unit": "notices",
+     "items": [
+      {
+       "label": "Value stated",
+       "expr": "count(estimated_value_usd)"
+      },
+      {
+       "label": "Value redacted",
+       "expr": "count(*) FILTER (WHERE value_redacted)"
+      },
+      {
+       "label": "Read, neither",
+       "expr": "count(*) FILTER (WHERE extract_status = 'extracted' AND estimated_value_usd IS NULL AND NOT coalesce(value_redacted, false))"
+      }
+     ]
+    },
+    {
+     "type": "top",
+     "title": "Stated value by agency",
+     "label": "agency",
+     "value": "sum(estimated_value_usd)",
+     "format": "currency",
+     "unit": "dollars",
+     "limit": 10
+    }
+   ]
+  },
+  {
+   "id": "vendors",
+   "label": "Vendors",
+   "subtitle": "Proposed contractors named in the notices.",
+   "experimental": true,
+   "stats": [
+    {
+     "label": "Named",
+     "expr": "count(vendor)"
+    },
+    {
+     "label": "Distinct",
+     "expr": "count(DISTINCT vendor)",
+     "hint": "Spellings can vary."
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top vendors",
+     "label": "vendor",
+     "unit": "notices",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Stated value by vendor",
+     "label": "vendor",
+     "value": "sum(estimated_value_usd)",
+     "format": "currency",
+     "unit": "dollars",
+     "limit": 15
+    }
+   ]
+  },
+  {
+   "id": "matched",
    "label": "Matched",
-   "expr": "count(*) FILTER (WHERE usaspending_matched)",
-   "hint": "Notices matched to a USAspending award."
-  },
-  {
-   "label": "Posted",
-   "expr": "strftime(min(posted_date), '%Y-%m') || ' to ' || strftime(max(posted_date), '%Y-%m')"
+   "subtitle": "Notices linked to a USAspending award.",
+   "stats": [
+    {
+     "label": "Matched",
+     "expr": "count(*) FILTER (WHERE usaspending_matched)"
+    },
+    {
+     "label": "Share",
+     "expr": "round(100.0 * count(*) FILTER (WHERE usaspending_matched) / nullif(count(*), 0), 1) || '%'"
+    },
+    {
+     "label": "Obligated",
+     "expr": "sum(usaspending_total_obligated)",
+     "format": "currency",
+     "hint": "Total obligated on matched awards."
+    }
+   ],
+   "charts": [
+    {
+     "type": "stack",
+     "title": "Matched by month",
+     "x": "posted_month",
+     "series": "CASE WHEN usaspending_matched THEN 'Matched' ELSE 'Not matched' END",
+     "kind": "month",
+     "seriesLimit": 2,
+     "unit": "notices",
+     "seriesOrder": [
+      "Matched",
+      "Not matched"
+     ]
+    },
+    {
+     "type": "top",
+     "title": "Matched share by agency",
+     "label": "agency",
+     "value": "100.0 * count(*) FILTER (WHERE usaspending_matched) / count(*)",
+     "format": "percent",
+     "unit": "%",
+     "min": 50,
+     "limit": 10
+    }
+   ]
   }
  ],
- "charts": [
-  {
-   "type": "month",
-   "title": "By month",
-   "label": "strftime(posted_date, '%Y-%m')",
-   "unit": "notices"
-  },
-  {
-   "type": "top",
-   "title": "Top agencies",
-   "label": "agency",
-   "unit": "notices",
-   "limit": 10
-  }
- ]
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "type",
+   "collection_reason",
+   "usaspending_matched",
+   "usaspending_extent_competed",
+   "naics_code",
+   "posted_month",
+   "authority_plain",
+   "value_redacted"
+  ],
+  "measures": [
+   {
+    "id": "stated",
+    "label": "Stated value (sum)",
+    "expr": "sum(estimated_value_usd)",
+    "format": "currency"
+   },
+   {
+    "id": "obligated",
+    "label": "Obligated on matched awards (sum)",
+    "expr": "sum(usaspending_total_obligated)",
+    "format": "currency"
+   }
+  ]
+ },
+ "record": {
+  "key": "notice_id",
+  "title": "{title}",
+  "subtitle": "{agency} · {posted_date}",
+  "sections": [
+   {
+    "title": "Notice",
+    "columns": [
+     "posted_date",
+     "type",
+     "collection_reason",
+     "solicitation_number",
+     "naics_code",
+     "sam_justification_authority",
+     "attachment_count"
+    ]
+   },
+   {
+    "title": "Agency",
+    "columns": [
+     "agency",
+     "sub_tier",
+     "office"
+    ]
+   },
+   {
+    "title": "Award",
+    "columns": [
+     "awardee",
+     "award_amount",
+     "award_number",
+     "award_date"
+    ]
+   },
+   {
+    "title": "USAspending",
+    "columns": [
+     "usaspending_matched",
+     "usaspending_extent_competed",
+     "usaspending_total_obligated",
+     "usaspending_recipient_name",
+     "usaspending_permalink"
+    ]
+   },
+   {
+    "title": "Read from the documents (experimental)",
+    "columns": [
+     "extract_status",
+     "authority_plain",
+     "authority_cited",
+     "estimated_value_usd",
+     "value_basis",
+     "value_redacted",
+     "vendor",
+     "period_of_performance"
+    ]
+   },
+   {
+    "title": "Identifiers",
+    "columns": [
+     "notice_id",
+     "sam_link"
+    ]
+   }
+  ],
+  "text": [
+   {
+    "label": "Description",
+    "column": "description"
+   },
+   {
+    "label": "Why not competed (model-written, experimental)",
+    "column": "summary_model_written"
+   }
+  ],
+  "links": [
+   {
+    "label": "Notice on SAM.gov",
+    "href": "{sam_link}"
+   },
+   {
+    "label": "Saved files on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/federal-ja-documents/tree/main/files/{notice_id:enc}",
+    "showIf": {
+     "col": "attachment_count",
+     "min": 1
+    }
+   },
+   {
+    "label": "Award on USAspending",
+    "href": "{usaspending_permalink}"
+   }
+  ],
+  "more": [
+   {
+    "id": "attachments",
+    "label": "Attachments",
+    "button": "Load attachments",
+    "hint": "Reads a 100 MB table. Takes several seconds.",
+    "url": "https://huggingface.co/datasets/abigailhaddad/federal-ja-documents/resolve/main/data/attachments.parquet",
+    "where": "notice_id",
+    "value": "notice_id",
+    "columns": [
+     {
+      "key": "filename",
+      "label": "File"
+     },
+     {
+      "key": "file_kind",
+      "label": "Kind"
+     },
+     {
+      "key": "page_count",
+      "label": "Pages"
+     },
+     {
+      "key": "text_source",
+      "label": "Text from"
+     },
+     {
+      "key": "download_status",
+      "label": "Download"
+     },
+     {
+      "key": "access_status",
+      "label": "Access"
+     }
+    ],
+    "text": "text"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same award number",
+    "cols": [
+     "award_number"
+    ],
+    "title": "{title}",
+    "sub": "{agency} · {posted_date}",
+    "limit": 8
+   },
+   {
+    "label": "Same solicitation",
+    "cols": [
+     "solicitation_number"
+    ],
+    "title": "{title}",
+    "sub": "{agency} · {posted_date}",
+    "limit": 8
+   },
+   {
+    "label": "Same vendor",
+    "cols": [
+     "vendor"
+    ],
+    "title": "{title}",
+    "sub": "{agency} · {posted_date}",
+    "limit": 8
+   }
+  ]
+ }
 }

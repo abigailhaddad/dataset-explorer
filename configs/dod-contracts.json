@@ -43,15 +43,6 @@
   "dir": "desc"
  },
  "pageSize": 50,
- "detail": {
-  "title": "{company}, {date}",
-  "links": [
-   {
-    "label": "Announcement on war.gov",
-    "href": "{link}"
-   }
-  ]
- },
  "columns": [
   {
    "key": "row_key",
@@ -94,8 +85,7 @@
   {
    "key": "article_title",
    "label": "Announcement",
-   "type": "text",
-   "link": "{link}"
+   "type": "text"
   },
   {
    "key": "link",
@@ -114,41 +104,272 @@
    "label": "Scraped at",
    "type": "text",
    "show": false
+  },
+  {
+   "key": "state",
+   "label": "State",
+   "type": "text",
+   "show": false,
+   "filter": "select",
+   "expr": "NULLIF(regexp_extract(place, ',\\s*([^,]+)$', 1), '')",
+   "help": "The text after the last comma in Place. Best-effort."
+  },
+  {
+   "key": "year",
+   "label": "Year",
+   "type": "text",
+   "show": false,
+   "expr": "NULLIF(substr(CAST(date AS VARCHAR), 1, 4), '')"
+  },
+  {
+   "key": "month",
+   "label": "Month",
+   "type": "text",
+   "show": false,
+   "expr": "NULLIF(substr(CAST(date AS VARCHAR), 1, 7), '')"
   }
  ],
- "stats": [
+ "views": [
   {
+   "id": "table",
    "label": "Awards",
-   "expr": "count(*)"
+   "subtitle": "Daily Defense contract awards from war.gov, 2014 to now.",
+   "stats": [
+    {
+     "label": "Awards",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Days",
+     "expr": "count(DISTINCT date)",
+     "hint": "Announcement days."
+    },
+    {
+     "label": "Companies",
+     "expr": "count(DISTINCT company)",
+     "hint": "Pattern-matched names; spellings can vary."
+    },
+    {
+     "label": "Dates",
+     "expr": "strftime(min(date), '%Y-%m') || ' to ' || strftime(max(date), '%Y-%m')"
+    }
+   ],
+   "charts": [
+    {
+     "type": "month",
+     "title": "By month",
+     "label": "strftime(date, '%Y-%m')",
+     "unit": "awards"
+    },
+    {
+     "type": "top",
+     "title": "Top branches",
+     "label": "agency",
+     "unit": "awards",
+     "limit": 10
+    }
+   ]
   },
   {
-   "label": "Days",
-   "expr": "count(DISTINCT date)",
-   "hint": "Announcement days."
+   "id": "branches",
+   "label": "Branches",
+   "subtitle": "Which branch announces how many awards.",
+   "stats": [
+    {
+     "label": "Awards",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Branches",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Days",
+     "expr": "count(DISTINCT date)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "stack",
+     "title": "Branch mix by year",
+     "x": "year",
+     "series": "agency",
+     "kind": "year",
+     "seriesLimit": 5,
+     "unit": "awards",
+     "seriesOrder": [
+      "NAVY",
+      "ARMY",
+      "AIR FORCE",
+      "DEFENSE LOGISTICS AGENCY"
+     ]
+    },
+    {
+     "type": "top",
+     "title": "Awards by branch",
+     "label": "agency",
+     "unit": "awards",
+     "limit": 12
+    }
+   ]
   },
   {
+   "id": "companies",
    "label": "Companies",
-   "expr": "count(DISTINCT company)",
-   "hint": "Pattern-matched names; spellings can vary."
+   "subtitle": "Awardee names. Best-effort.",
+   "stats": [
+    {
+     "label": "Awards",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Name read",
+     "expr": "count(company)",
+     "hint": "Best-effort: read from the start of each award paragraph."
+    },
+    {
+     "label": "Distinct",
+     "expr": "count(DISTINCT company)",
+     "hint": "Spellings and joint awards vary."
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top companies",
+     "label": "company",
+     "unit": "awards",
+     "limit": 15
+    },
+    {
+     "type": "stack",
+     "title": "Top companies by branch",
+     "x": "company",
+     "series": "agency",
+     "kind": "category",
+     "limit": 8,
+     "seriesOrder": [
+      "NAVY",
+      "ARMY",
+      "AIR FORCE",
+      "DEFENSE LOGISTICS AGENCY"
+     ],
+     "unit": "awards"
+    }
+   ]
   },
   {
-   "label": "Dates",
-   "expr": "strftime(min(date), '%Y-%m') || ' to ' || strftime(max(date), '%Y-%m')"
+   "id": "places",
+   "label": "Places",
+   "subtitle": "Where awardees are. Best-effort.",
+   "stats": [
+    {
+     "label": "Awards",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Place read",
+     "expr": "count(place)",
+     "hint": "Best-effort: read from the start of each award paragraph."
+    },
+    {
+     "label": "States",
+     "expr": "count(DISTINCT state)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top states",
+     "label": "state",
+     "unit": "awards",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Top places",
+     "label": "place",
+     "unit": "awards",
+     "limit": 15
+    }
+   ]
   }
  ],
- "charts": [
-  {
-   "type": "month",
-   "title": "By month",
-   "label": "strftime(date, '%Y-%m')",
-   "unit": "awards"
-  },
-  {
-   "type": "top",
-   "title": "Top branches",
-   "label": "agency",
-   "unit": "awards",
-   "limit": 10
-  }
- ]
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "year",
+   "month",
+   "state",
+   "company",
+   "place"
+  ],
+  "measures": []
+ },
+ "record": {
+  "key": "row_key",
+  "title": [
+   "{company}",
+   "{article_title}"
+  ],
+  "subtitle": "{agency} · {date}",
+  "sections": [
+   {
+    "title": "Award",
+    "columns": [
+     "company",
+     "place",
+     "state",
+     "agency",
+     "date"
+    ]
+   },
+   {
+    "title": "Article",
+    "columns": [
+     "article_title",
+     "link",
+     "row_index",
+     "scraped_at"
+    ]
+   }
+  ],
+  "text": [
+   {
+    "label": "Award text",
+    "column": "text"
+   }
+  ],
+  "links": [
+   {
+    "label": "Announcement on war.gov",
+    "href": "{link}"
+   },
+   {
+    "label": "Dataset card",
+    "href": "https://huggingface.co/datasets/abigailhaddad/dod-daily-contracts"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same announcement",
+    "cols": [
+     "link"
+    ],
+    "title": "{company}",
+    "sub": "{place}",
+    "limit": 8
+   },
+   {
+    "label": "Same company",
+    "cols": [
+     "company"
+    ],
+    "title": "{article_title}",
+    "sub": "{agency}",
+    "limit": 8
+   }
+  ]
+ }
 }

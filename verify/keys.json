@@ -1,0 +1,27 @@
+{
+ "eeoc": [
+  "0014fd662cbd6c20d3b7a5258d6a8467522225bc5a3c598db29aa65dc1fe487b",
+  "01712a7048c12f25e9a0c8c9d9b65ac595291543cd45486e25190a4aa6c906ea",
+  "6fbb00d1ed3859b567f0f0e75ec385a0d417bf09a67f29b7719853e0bbd2abf7"
+ ],
+ "eeoc-listing": [
+  "https://www.eeoc.gov/sites/default/files/2026-01/20-2400-4561.pdf",
+  "https://www.eeoc.gov/sites/default/files/2026-01/2024000815.pdf",
+  "https://www.eeoc.gov/sites/default/files/migrated_files/decisions/01983372_r.txt"
+ ],
+ "opm-cba": [
+  "10530990-ab00-ea11-9160-005056a577c8",
+  "163404cd-790c-ea11-9162-005056a577c8",
+  "7839f80b-a369-4666-800f-d7c034116166"
+ ],
+ "federal-ja": [
+  "0204fdbc1c09431fbfaa67133269495a",
+  "00f4c38683f743d4981e9bcf5f1dd43d",
+  "00e5e77de3ec44b29f90a1cd06bb6f5d"
+ ],
+ "dod-contracts": [
+  "https://www.war.gov/News/Contracts/Contract/Article/1104168/contracts-for-mar-6-2017/#2",
+  "https://www.war.gov/News/Contracts/Contract/Article/4140129/contracts-for-mar-31-2025/#0",
+  "https://www.war.gov/News/Contracts/Contract/Article/822083/contracts-for-jun-30-2016/#2"
+ ]
+}
