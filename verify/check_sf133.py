@@ -35,23 +35,23 @@ for suf, _, w in FILTERS:
     r = c.execute(f"select count(*), count(distinct agency), sum({res}), count(*) filter(where is_gift_account) from {A}{w}").fetchone()
     T.chk('Account-years' + suf, st['Account-years'], num(r[0]))
     T.chk('Agencies' + suf, st['Agencies'], num(r[1]))
-    T.chk('Resources, summed' + suf, st['Resources, summed'], bil(r[2]))
+    T.chk('Resources, summed' + suf, st['Resources, incl. financing'], bil(r[2]))
     T.chk('Gift account-years' + suf, st['Gift accounts'], num(r[3]))
     ch = {x['title']: x for x in t['charts']}
     ex = top('agency', f'sum({res})', w, 12)
-    T.chk('Top agencies (first 5)' + suf, [(a, b) for a, b in ch['Top agencies']['rows'][:5]], [(l, bil(v)) for l, v in ex[:5]])
-    yr = {a: b for a, b in ch['Resources by year']['rows']}
+    T.chk('Top agencies (first 5)' + suf, [(a, b) for a, b in ch['Top agencies, incl. financing']['rows'][:5]], [(l, bil(v)) for l, v in ex[:5]])
+    yr = {a: b for a, b in ch['Resources by year, incl. financing']['rows']}
     exy = c.execute(f"select cast(fiscal_year as varchar), sum({res}) from {A}{w} group by 1").fetchall()
     T.chk('Resources by year (all years shown)' + suf, {k: yr.get(k) for k, _ in exy}, {k: bil(v) for k, v in exy})
 
     a = out['agencies' + suf]; st = dict(a['stats'])
     r = c.execute(f"select count(distinct agency), sum({res}), sum({unob}), 100*sum({unob})/nullif(sum({res}),0) from {A}{w}").fetchone()
     T.chk('By agency: Agencies' + suf, st['Agencies'], num(r[0]))
-    T.chk('By agency: Resources' + suf, st['Resources, summed'], bil(r[1]))
+    T.chk('By agency: Resources' + suf, st['Resources, incl. financing'], bil(r[1]))
     T.chk('By agency: Unobligated' + suf, st['Unobligated, summed'], bil(r[2]))
     T.chk('By agency: Share' + suf, st['Share unobligated'], pct(r[3]))
     ch = {x['title']: x for x in a['charts']}
-    T.chk('By agency: Resources top 5' + suf, ch['Resources']['rows'][:5], [[l, bil(v)] for l, v in top('agency', f'sum({res})', w, 5)])
+    T.chk('By agency: Resources top 5' + suf, ch['Resources, incl. financing']['rows'][:5], [[l, bil(v)] for l, v in top('agency', f'sum({res})', w, 5)])
     T.chk('By agency: Unobligated top 5' + suf, ch['Unobligated']['rows'][:5], [[l, bil(v)] for l, v in top('agency', f'sum({unob})', w, 5)])
     ex = top('agency', f"100*sum({unob})/nullif(sum({res}),0)", w, 5, having=' having count(*) >= 20')
     T.chk('By agency: Share top 5 (min 20 rows)' + suf, ch['Share unobligated']['rows'][:5], [[l, pct(v)] for l, v in ex])
@@ -75,7 +75,7 @@ for suf, _, w in FILTERS:
     r = c.execute(f"select count(distinct fiscal_year), count(distinct tafs) from {A}{w}").fetchone()
     T.chk('Over time: fiscal years' + suf, st['Fiscal years'], num(r[0])); T.chk('Over time: accounts' + suf, st['Accounts'], num(r[1]))
     ch = {x['title']: x for x in tm['charts']}
-    for title, sql, f in [('Resources', f'sum({res})', bil), ('Unobligated', f'sum({unob})', bil), ('Accounts', 'count(*)', num)]:
+    for title, sql, f in [('Resources, incl. financing', f'sum({res})', bil), ('Unobligated', f'sum({unob})', bil), ('Accounts', 'count(*)', num)]:
         shown = {a: b for a, b in ch[title]['rows']}
         exy = c.execute(f"select cast(fiscal_year as varchar), {sql} from {A}{w} group by 1").fetchall()
         T.chk('Over time: ' + title + suf, {k: shown.get(k) for k, _ in exy}, {k: f(v) for k, v in exy})

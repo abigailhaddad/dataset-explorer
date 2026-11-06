@@ -215,10 +215,10 @@
      "expr": "count(DISTINCT agency)"
     },
     {
-     "label": "Resources, summed",
+     "label": "Resources, incl. financing",
      "expr": "sum(total_budgetary_resources)",
      "format": "billions",
-     "hint": "Total budgetary resources added up over every row shown. Pick one fiscal year for a single year's total."
+     "hint": "Total budgetary resources (line 2500) added up over every row shown, financing accounts included. Pick one fiscal year for a single year's total, and set Financing to non-financing to leave financing accounts out."
     },
     {
      "label": "Gift accounts",
@@ -229,7 +229,7 @@
    "charts": [
     {
      "type": "top",
-     "title": "Top agencies",
+     "title": "Top agencies, incl. financing",
      "label": "agency",
      "value": "sum(total_budgetary_resources)",
      "unit": "resources",
@@ -238,7 +238,7 @@
     },
     {
      "type": "year",
-     "title": "Resources by year",
+     "title": "Resources by year, incl. financing",
      "label": "fiscal_year",
      "value": "sum(total_budgetary_resources)",
      "unit": "resources",
@@ -256,10 +256,10 @@
      "expr": "count(DISTINCT agency)"
     },
     {
-     "label": "Resources, summed",
+     "label": "Resources, incl. financing",
      "expr": "sum(total_budgetary_resources)",
      "format": "billions",
-     "hint": "Pick one fiscal year for a single year's total."
+     "hint": "Total budgetary resources, financing accounts included. Pick one fiscal year for a single year's total."
     },
     {
      "label": "Unobligated, summed",
@@ -271,13 +271,13 @@
      "label": "Share unobligated",
      "expr": "100 * sum(unobligated_balance_end_of_period) / nullif(sum(total_budgetary_resources), 0)",
      "format": "percent",
-     "hint": "Unobligated balance as a share of total budgetary resources."
+     "hint": "Unobligated balance as a share of total budgetary resources. Accounts with no line 2490 count in the resources but have no balance, so FY2025 reads 21.9% here and 22.4% on the apportionment site."
     }
    ],
    "charts": [
     {
      "type": "top",
-     "title": "Resources",
+     "title": "Resources, incl. financing",
      "label": "agency",
      "value": "sum(total_budgetary_resources)",
      "unit": "resources",
@@ -371,7 +371,7 @@
    "charts": [
     {
      "type": "year",
-     "title": "Resources",
+     "title": "Resources, incl. financing",
      "label": "fiscal_year",
      "value": "sum(total_budgetary_resources)",
      "unit": "resources",
