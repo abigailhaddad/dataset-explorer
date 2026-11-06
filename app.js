@@ -367,7 +367,7 @@ async function loadFacets() {
       truncated,
       items: rows.slice(0, FACET_LIMIT).map((r) => ({
         value: r.v === null ? BLANK : r.v,
-        label: r.v === null ? '(blank)' : c.type === 'bool' ? (r.v === 'true' ? 'Yes' : 'No') : r.v,
+        label: r.v === null ? '(blank)' : c.type === 'bool' ? (r.v === 'true' ? 'Yes' : 'No') : c.format === 'code' ? humanCode(r.v, c) : r.v,
         n: Number(r.n),
       })),
     };
@@ -563,9 +563,17 @@ function orderBody() {
 
 /* ---------- table ---------- */
 
+// A raw code such as not_stated, shown as plain words. The stored value is unchanged.
+function humanCode(v, c) {
+  if (c && c.valueLabels && c.valueLabels[v] !== undefined) return c.valueLabels[v];
+  const t = String(v).replace(/_/g, ' ');
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 function formatValue(c, v) {
   if (v === null || v === undefined || v === '') return '';
   if (c.type === 'bool') return v ? 'Yes' : 'No';
+  if (c.format === 'code') return humanCode(v, c);
   if (c.type === 'number') {
     const n = Number(v);
     if (c.format === 'currency') return '$' + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -1832,7 +1840,14 @@ function wire() {
   el('fdbody').addEventListener('input', (e) => {
     if (e.target.id !== 'fdnarrow') return;
     const needle = e.target.value.toLowerCase();
-    for (const lab of el('fdbody').querySelectorAll('.opts label')) lab.hidden = !lab.textContent.toLowerCase().includes(needle);
+    let shown = 0;
+    for (const lab of el('fdbody').querySelectorAll('.opts label')) {
+      lab.hidden = !lab.textContent.toLowerCase().includes(needle);
+      if (!lab.hidden) shown += 1;
+    }
+    const note = el('fdbody').querySelector('p.summary');
+    if (note.dataset.base === undefined) note.dataset.base = note.textContent;
+    note.textContent = shown === 0 ? 'No values match.' : note.dataset.base;
   });
   el('fdbody').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') applyFilter();
@@ -1929,6 +1944,9 @@ function wire() {
     try {
       await navigator.clipboard.writeText(location.href);
       setStatus('Link copied.', '');
+      const btn = el('copy');
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = 'Copy Link'; }, 1500);
     } catch (e) {
       setStatus('Could not copy. The address bar has the link.', 'warn');
     }

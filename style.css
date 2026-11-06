@@ -213,7 +213,20 @@ input, select {
 
 /* table */
 .summary { margin: 0.5rem 0; color: var(--color-text-muted); font-size: 0.92rem; }
-.tablewrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--card-radius); background: var(--color-bg); }
+/* Wide tables scroll sideways inside their box. The edge shadows and a visible scrollbar show that more columns exist. */
+.tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background:
+    linear-gradient(to right, var(--color-bg) 30%, transparent) left center / 40px 100% no-repeat local,
+    linear-gradient(to left, var(--color-bg) 30%, transparent) right center / 40px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.22), transparent) left center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.22), transparent) right center / 12px 100% no-repeat scroll,
+    var(--color-bg);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-muted) var(--color-surface);
+}
 table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 th, td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: top; }
 th { background: var(--color-surface); font-family: var(--font-heading); font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; position: sticky; top: 0; }

@@ -81,6 +81,7 @@
   {
    "key": "termination_flag",
    "label": "Termination flag",
+   "format": "code",
    "type": "text",
    "filter": "select",
    "help": "Leads, not findings. \"inferred\": the agency ended all agreements in a category and the order itself could not be downloaded. OPM's own monthly status list is not public."
@@ -123,6 +124,7 @@
   {
    "key": "download_status",
    "label": "Download status",
+   "format": "code",
    "type": "text",
    "filter": "select",
    "show": false,
@@ -179,6 +181,7 @@
   {
    "key": "text_status",
    "label": "Text status",
+   "format": "code",
    "type": "text",
    "filter": "select",
    "show": false,
@@ -187,6 +190,7 @@
   {
    "key": "eo_coverage",
    "label": "Executive order coverage",
+   "format": "code",
    "type": "text",
    "filter": "select",
    "show": false
