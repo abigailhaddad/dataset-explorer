@@ -1759,7 +1759,11 @@ async function showRecord() {
     }
     box.append(card);
   }
-  for (const m of rec.more || []) box.append(moreBlock(m, row));
+  for (const m of rec.more || []) {
+    // skipWhenZero names a count column: with none, there is nothing to load.
+    if (m.skipWhenZero && Number(row[m.skipWhenZero]) === 0) continue;
+    box.append(moreBlock(m, row));
+  }
 
   const related = recordCard('Related');
   box.append(related);

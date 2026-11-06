@@ -639,6 +639,7 @@
    {
     "id": "attachments",
     "label": "Attachments",
+    "skipWhenZero": "attachment_count",
     "button": "Load attachments",
     "hint": "Reads a 100 MB table. Takes several seconds.",
     "url": "https://huggingface.co/datasets/abigailhaddad/federal-ja-documents/resolve/main/data/attachments.parquet",
