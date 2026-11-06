@@ -48,5 +48,34 @@
    "dod-daily-contracts",
    "dod"
   ]
+ },
+ {
+  "id": "sf133",
+  "title": "SF-133 budget execution",
+  "blurb": "Every federal account, year by year, at September.",
+  "aliases": [
+   "sf-133",
+   "sf133-budget-execution",
+   "budget-execution",
+   "budget"
+  ]
+ },
+ {
+  "id": "usajobs-questionnaires",
+  "title": "USAJOBS questionnaires",
+  "blurb": "Application questionnaires from federal job announcements.",
+  "aliases": [
+   "questionnaires",
+   "usajobs-questionnaire"
+  ]
+ },
+ {
+  "id": "usajobs-questions",
+  "title": "USAJOBS questions",
+  "blurb": "Every question from those questionnaires, searchable.",
+  "aliases": [
+   "questions",
+   "usajobs-question"
+  ]
  }
 ]

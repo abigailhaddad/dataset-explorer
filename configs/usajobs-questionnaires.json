@@ -1,0 +1,505 @@
+{
+ "id": "usajobs-questionnaires",
+ "title": "USAJOBS questionnaires",
+ "blurb": "Application questionnaires from federal job announcements.",
+ "hfDataset": "abigailhaddad/usajobs-questionnaires",
+ "source": {
+  "format": "parquet",
+  "discover": {
+   "hfDataset": "abigailhaddad/usajobs-questionnaires",
+   "path": "data/questionnaires"
+  }
+ },
+ "key": "questionnaire_id",
+ "covers": "One row per questionnaire page linked from a USAJOBS announcement, with its questions on the record page.",
+ "caveats": [
+  "These are USA Staffing and Monster questionnaire templates with no applicant answers. Email addresses were removed from the text.",
+  "Most pages carry a \"For preview purposes only\" banner. A questionnaire can be reused by several announcements.",
+  "Coverage is the questionnaires linked from the announcements collected so far. See the dataset card for the date range."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/usajobs-questionnaires"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/usajobs-questionnaires"
+  }
+ ],
+ "searchColumns": [
+  "position_title",
+  "agency",
+  "announcement_number"
+ ],
+ "defaultSort": {
+  "col": "open_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "questionnaire_id",
+   "label": "Questionnaire id",
+   "type": "text"
+  },
+  {
+   "key": "position_title",
+   "label": "Position",
+   "type": "text"
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "The agency line printed on the questionnaire, often a sub-agency."
+  },
+  {
+   "key": "hiring_agency",
+   "label": "Department",
+   "type": "text",
+   "filter": "select",
+   "help": "The hiring department from the announcement. Blank when the announcement was not matched."
+  },
+  {
+   "key": "announcement_number",
+   "label": "Announcement number",
+   "type": "text"
+  },
+  {
+   "key": "open_date",
+   "label": "Opened",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "close_date",
+   "label": "Closes",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "n_questions",
+   "label": "Questions",
+   "type": "number",
+   "filter": "range"
+  },
+  {
+   "key": "portal",
+   "label": "Portal",
+   "type": "text",
+   "format": "code",
+   "filter": "select",
+   "valueLabels": {
+    "usastaffing": "USA Staffing",
+    "monster": "Monster"
+   }
+  },
+  {
+   "key": "parse_status",
+   "label": "Read as",
+   "type": "text",
+   "format": "code",
+   "filter": "select",
+   "valueLabels": {
+    "ok": "Questions read",
+    "ok_missing_header": "Questions read, no header",
+    "no_questions": "Empty questionnaire",
+    "html_shell": "Blank page",
+    "login_page": "Login page",
+    "monster_not_parsed": "Monster, raw text only"
+   },
+   "help": "How the page was read. Blank pages and login pages have no questionnaire."
+  },
+  {
+   "key": "occupation_series",
+   "label": "Occupation series",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "show": false,
+   "help": "From the announcement. Some series appear with and without the leading zero."
+  },
+  {
+   "key": "n_sections",
+   "label": "Sections",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "preview_banner",
+   "label": "Preview banner",
+   "type": "bool",
+   "show": false,
+   "help": "The page says it is for preview purposes only."
+  },
+  {
+   "key": "source_url",
+   "label": "Questionnaire page",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "method",
+   "label": "How collected",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "retrieved_at",
+   "label": "Retrieved",
+   "type": "text",
+   "show": false,
+   "help": "Blank for the 2025 release: only the date the link was found is known."
+  },
+  {
+   "key": "link_found_at",
+   "label": "Link found",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "n_chars",
+   "label": "Characters",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "text_sha256",
+   "label": "Text hash (SHA-256)",
+   "type": "text",
+   "show": false,
+   "help": "Hash of the text after email removal."
+  },
+  {
+   "key": "n_announcements",
+   "label": "Announcements linking",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "control_numbers",
+   "label": "USAJOBS control numbers",
+   "type": "text",
+   "show": false,
+   "expr": "array_to_string(usajobs_control_numbers, ', ')"
+  },
+  {
+   "key": "control_first",
+   "label": "First control number",
+   "type": "text",
+   "show": false,
+   "expr": "CAST(usajobs_control_numbers[1] AS VARCHAR)"
+  },
+  {
+   "key": "open_year",
+   "label": "Opened (year)",
+   "type": "text",
+   "show": false,
+   "expr": "strftime(TRY_CAST(open_date AS DATE), '%Y')"
+  },
+  {
+   "key": "open_month",
+   "label": "Opened (month)",
+   "type": "text",
+   "show": false,
+   "expr": "strftime(TRY_CAST(open_date AS DATE), '%Y-%m')"
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
+   "label": "Questionnaires",
+   "subtitle": "One row per questionnaire page.",
+   "stats": [
+    {
+     "label": "Questionnaires",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Questions",
+     "expr": "sum(n_questions)"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)",
+     "hint": "Agency lines as printed on the questionnaires."
+    },
+    {
+     "label": "Median length",
+     "expr": "median(n_questions)",
+     "hint": "Median questions per questionnaire."
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top agencies",
+     "label": "agency",
+     "unit": "questionnaires",
+     "limit": 12
+    },
+    {
+     "type": "top",
+     "title": "Read as",
+     "label": "CASE parse_status WHEN 'ok' THEN 'Questions read' WHEN 'ok_missing_header' THEN 'Questions read, no header' WHEN 'no_questions' THEN 'Empty questionnaire' WHEN 'html_shell' THEN 'Blank page' WHEN 'login_page' THEN 'Login page' WHEN 'monster_not_parsed' THEN 'Monster, raw text only' ELSE parse_status END",
+     "unit": "questionnaires",
+     "limit": 8
+    }
+   ]
+  },
+  {
+   "id": "agencies",
+   "label": "By agency",
+   "subtitle": "Who asks how many questions.",
+   "stats": [
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Departments",
+     "expr": "count(DISTINCT hiring_agency)",
+     "hint": "Blank departments are not counted."
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Questionnaires",
+     "label": "agency",
+     "unit": "questionnaires",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Questions",
+     "label": "agency",
+     "value": "sum(n_questions)",
+     "unit": "questions",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Average length",
+     "label": "agency",
+     "value": "avg(n_questions)",
+     "unit": "questions",
+     "limit": 15,
+     "min": 20,
+     "blank": false
+    },
+    {
+     "type": "top",
+     "title": "Departments",
+     "label": "hiring_agency",
+     "unit": "questionnaires",
+     "limit": 15
+    }
+   ]
+  },
+  {
+   "id": "time",
+   "label": "Over time",
+   "subtitle": "By the date the announcement opened.",
+   "stats": [
+    {
+     "label": "With a date",
+     "expr": "count(*) FILTER (WHERE open_date IS NOT NULL)",
+     "hint": "Questionnaires where the opening date could be read."
+    },
+    {
+     "label": "No date",
+     "expr": "count(*) FILTER (WHERE open_date IS NULL)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "month",
+     "title": "Opened, by month",
+     "label": "open_month",
+     "unit": "questionnaires"
+    },
+    {
+     "type": "year",
+     "title": "Opened, by year",
+     "label": "open_year",
+     "unit": "questionnaires"
+    },
+    {
+     "type": "month",
+     "title": "Questions, by month",
+     "label": "open_month",
+     "value": "sum(n_questions)",
+     "unit": "questions"
+    }
+   ]
+  },
+  {
+   "id": "quality",
+   "label": "Reading",
+   "subtitle": "How each page was read.",
+   "stats": [
+    {
+     "label": "Questions read",
+     "expr": "count(*) FILTER (WHERE parse_status IN ('ok','ok_missing_header'))"
+    },
+    {
+     "label": "Blank or login",
+     "expr": "count(*) FILTER (WHERE parse_status IN ('html_shell','login_page'))",
+     "hint": "Pages with no questionnaire."
+    },
+    {
+     "label": "Monster",
+     "expr": "count(*) FILTER (WHERE portal = 'monster')",
+     "hint": "Kept as raw text, not split into questions."
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Read as",
+     "label": "CASE parse_status WHEN 'ok' THEN 'Questions read' WHEN 'ok_missing_header' THEN 'Questions read, no header' WHEN 'no_questions' THEN 'Empty questionnaire' WHEN 'html_shell' THEN 'Blank page' WHEN 'login_page' THEN 'Login page' WHEN 'monster_not_parsed' THEN 'Monster, raw text only' ELSE parse_status END",
+     "unit": "pages",
+     "limit": 8
+    },
+    {
+     "type": "top",
+     "title": "Portal",
+     "label": "CASE portal WHEN 'usastaffing' THEN 'USA Staffing' WHEN 'monster' THEN 'Monster' ELSE portal END",
+     "unit": "pages",
+     "limit": 4
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "hiring_agency",
+  "columns": [
+   "hiring_agency",
+   "agency",
+   "occupation_series",
+   "portal",
+   "parse_status",
+   "open_year",
+   "open_month",
+   "preview_banner"
+  ],
+  "measures": [
+   {
+    "id": "questions",
+    "label": "Questions (sum)",
+    "expr": "sum(n_questions)"
+   }
+  ]
+ },
+ "record": {
+  "key": "questionnaire_id",
+  "title": [
+   "{position_title}",
+   "Questionnaire {questionnaire_id}"
+  ],
+  "subtitle": "{agency} \u00b7 {announcement_number}",
+  "sections": [
+   {
+    "title": "Announcement",
+    "columns": [
+     "position_title",
+     "agency",
+     "hiring_agency",
+     "occupation_series",
+     "announcement_number",
+     "control_numbers",
+     "open_date",
+     "close_date"
+    ]
+   },
+   {
+    "title": "Questionnaire",
+    "columns": [
+     "questionnaire_id",
+     "portal",
+     "n_questions",
+     "n_sections",
+     "parse_status",
+     "preview_banner"
+    ]
+   },
+   {
+    "title": "Collected",
+    "columns": [
+     "source_url",
+     "method",
+     "link_found_at",
+     "retrieved_at",
+     "n_chars",
+     "text_sha256"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "Original questionnaire page",
+    "href": "https://apply.usastaffing.gov/ViewQuestionnaire/{questionnaire_id:enc}",
+    "showIf": {
+     "col": "portal",
+     "equals": "usastaffing"
+    }
+   },
+   {
+    "label": "USAJOBS announcement (may be closed)",
+    "href": "https://www.usajobs.gov/job/{control_first:enc}"
+   },
+   {
+    "label": "Dataset on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/usajobs-questionnaires"
+   }
+  ],
+  "outline": {
+   "label": "Questions",
+   "discover": {
+    "hfDataset": "abigailhaddad/usajobs-questionnaires",
+    "path": "data/questions"
+   },
+   "where": "questionnaire_id",
+   "value": "questionnaire_id",
+   "link": "usajobs-questions",
+   "empty": "No questions are stored for this page. Monster pages are kept as raw text only, and blank or login pages hold no questionnaire.",
+   "columns": {
+    "block": "block_index",
+    "section": "section",
+    "kind": "section_kind",
+    "ordinal": "question_ordinal",
+    "number": "question_number",
+    "text": "question_text",
+    "type": "question_type",
+    "options": "options",
+    "trailing": "trailing_text",
+    "id": "question_id"
+   },
+   "intros": {
+    "discover": {
+     "hfDataset": "abigailhaddad/usajobs-questionnaires",
+     "path": "data/sections"
+    },
+    "block": "block_index",
+    "text": "intro_text"
+   }
+  },
+  "related": [
+   {
+    "label": "Same position and agency",
+    "cols": [
+     "position_title",
+     "agency"
+    ],
+    "title": "{announcement_number}",
+    "sub": "opened {open_date}",
+    "limit": 8
+   }
+  ]
+ }
+}

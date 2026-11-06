@@ -354,3 +354,20 @@ a.recordlink { font-weight: 600; }
 
 #matchbar .warn { color: var(--warn-ink, #8a4b00); font-weight: 600; }
 
+
+/* Questionnaire outline on a record page */
+.outline { margin-top: 0.25rem; }
+.outline-section { font-size: 1rem; margin: 1.1rem 0 0.4rem; padding-top: 0.6rem; border-top: 1px solid var(--color-border); }
+.outline-section:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.outline .tag { display: inline-block; margin-left: 0.5rem; padding: 0 0.5rem; border-radius: 999px; background: var(--color-surface); color: var(--color-text-muted); font-size: 0.75rem; font-weight: 600; vertical-align: middle; }
+.outline-list { margin: 0.25rem 0 0; padding-left: 2.2rem; }
+.outline-list > li { margin: 0.55rem 0; overflow-wrap: anywhere; }
+.outline-list > li::marker { color: var(--color-text-muted); font-weight: 600; }
+.outline-q { color: var(--color-text); text-decoration: none; }
+.outline-q:hover { color: var(--color-accent); text-decoration: underline; }
+.outline-options { margin: 0.3rem 0 0; padding-left: 1.2rem; color: var(--color-text-muted); font-size: 0.92rem; }
+.outline-options li { margin: 0.1rem 0; }
+.rel-lazy { margin-top: 0.5rem; }
+
+/* A chart with long labels takes the whole row */
+.charts-grid .chart-card.wide { grid-column: 1 / -1; }

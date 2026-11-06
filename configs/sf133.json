@@ -1,0 +1,508 @@
+{
+ "id": "sf133",
+ "title": "SF-133 budget execution",
+ "blurb": "Every federal account, year by year, at September.",
+ "hfDataset": "abigailhaddad/sf133-budget-execution",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/sf133-budget-execution/resolve/main/data/sf133_accounts.parquet"
+  ]
+ },
+ "key": "rid",
+ "covers": "One row per account per fiscal year, with OMB's headline SF-133 lines at September. Unofficial copy of what OMB posts on MAX.gov.",
+ "caveats": [
+  "Amounts are dollars, fiscal year to date through September. A row is one account in one year, so pick one fiscal year before adding amounts up.",
+  "Line 2500 is total budgetary resources, not budget authority (line 1900). Blank means OMB did not report the line.",
+  "The gift flag is a title match. A balance says nothing about who gave the money."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/sf133-budget-execution"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/sf133-budget-execution"
+  },
+  {
+   "label": "OMB SF-133 reports",
+   "href": "https://portal.max.gov/portal/document/SF133/Budget/"
+  }
+ ],
+ "searchColumns": [
+  "agency",
+  "bureau",
+  "tafs"
+ ],
+ "defaultSort": {
+  "col": "fiscal_year",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "rid",
+   "label": "Account-year id",
+   "type": "text",
+   "show": false,
+   "expr": "CAST(fiscal_year AS VARCHAR) || '-' || agency_code || '-' || account_code || '-' || coalesce(allocation_code, '') || '-' || coalesce(begin_year, '') || '-' || coalesce(end_year, '') || '-' || substr(financing, 1, 3)"
+  },
+  {
+   "key": "fiscal_year",
+   "label": "Fiscal year",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "bureau",
+   "label": "Bureau",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "tafs",
+   "label": "Account (TAFS)",
+   "type": "text",
+   "help": "Treasury Appropriation Fund Symbol and title."
+  },
+  {
+   "key": "total_budgetary_resources",
+   "label": "Total budgetary resources",
+   "type": "number",
+   "format": "currency",
+   "help": "SF-133 line 2500, in dollars, fiscal year to date through September. Blank when OMB did not report it.",
+   "filter": "range"
+  },
+  {
+   "key": "unobligated_balance_end_of_period",
+   "label": "Unobligated at year end",
+   "type": "number",
+   "format": "currency",
+   "help": "SF-133 line 2490, in dollars.",
+   "filter": "range"
+  },
+  {
+   "key": "new_obligations_and_upward_adjustments",
+   "label": "New obligations",
+   "type": "number",
+   "format": "currency",
+   "help": "SF-133 line 2190, in dollars."
+  },
+  {
+   "key": "is_gift_account",
+   "label": "Gift account",
+   "type": "bool",
+   "filter": "select",
+   "help": "True when the account title contains gift, donation or bequest. A title match, not a judgment."
+  },
+  {
+   "key": "financing",
+   "label": "Account type",
+   "type": "text",
+   "format": "code",
+   "filter": "select",
+   "valueLabels": {
+    "NON-FINANCING ACCOUNTS": "Non-financing",
+    "FINANCING ACCOUNTS": "Financing"
+   },
+   "help": "Financing accounts record credit-program cash flows."
+  },
+  {
+   "key": "unobligated_balance_brought_forward",
+   "label": "Unobligated, start of year",
+   "type": "number",
+   "format": "currency",
+   "show": false,
+   "help": "SF-133 line 1000, in dollars."
+  },
+  {
+   "key": "budget_authority_total",
+   "label": "Budget authority",
+   "type": "number",
+   "format": "currency",
+   "show": false,
+   "help": "SF-133 line 1900, in dollars."
+  },
+  {
+   "key": "outlays_gross_change_in_obligated_balance",
+   "label": "Gross outlays",
+   "type": "number",
+   "format": "currency",
+   "show": false,
+   "help": "SF-133 line 3020, in dollars."
+  },
+  {
+   "key": "outlays_net",
+   "label": "Net outlays",
+   "type": "number",
+   "format": "currency",
+   "show": false,
+   "help": "SF-133 line 4190, in dollars."
+  },
+  {
+   "key": "agency_code",
+   "label": "Agency code",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "account_code",
+   "label": "Account code",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "allocation_code",
+   "label": "Allocation code",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "begin_year",
+   "label": "Available from",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "end_year",
+   "label": "Available until",
+   "type": "text",
+   "show": false,
+   "help": "X means no-year funds."
+  },
+  {
+   "key": "availability",
+   "label": "Availability",
+   "type": "text",
+   "format": "code",
+   "filter": "select",
+   "show": false,
+   "valueLabels": {
+    "U": "Unexpired",
+    "E": "Expired"
+   }
+  },
+  {
+   "key": "resources_label",
+   "label": "Resources (text)",
+   "type": "text",
+   "show": false,
+   "expr": "CASE WHEN total_budgetary_resources IS NULL THEN NULL ELSE format('${:,.1f}M', total_budgetary_resources / 1e6) END"
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
+   "label": "Accounts",
+   "subtitle": "Every federal account, one row per year.",
+   "stats": [
+    {
+     "label": "Account-years",
+     "expr": "count(*)",
+     "hint": "One row per account per fiscal year."
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Resources, summed",
+     "expr": "sum(total_budgetary_resources)",
+     "format": "billions",
+     "hint": "Total budgetary resources added up over every row shown. Pick one fiscal year for a single year's total."
+    },
+    {
+     "label": "Gift accounts",
+     "expr": "count(*) FILTER (WHERE is_gift_account)",
+     "hint": "Account-years flagged as gift accounts."
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Top agencies",
+     "label": "agency",
+     "value": "sum(total_budgetary_resources)",
+     "unit": "resources",
+     "format": "billions",
+     "limit": 12
+    },
+    {
+     "type": "year",
+     "title": "Resources by year",
+     "label": "fiscal_year",
+     "value": "sum(total_budgetary_resources)",
+     "unit": "resources",
+     "format": "billions"
+    }
+   ]
+  },
+  {
+   "id": "agencies",
+   "label": "By agency",
+   "subtitle": "Resources and unobligated balances.",
+   "stats": [
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Resources, summed",
+     "expr": "sum(total_budgetary_resources)",
+     "format": "billions",
+     "hint": "Pick one fiscal year for a single year's total."
+    },
+    {
+     "label": "Unobligated, summed",
+     "expr": "sum(unobligated_balance_end_of_period)",
+     "format": "billions",
+     "hint": "Unobligated balance at year end, added up over the rows shown."
+    },
+    {
+     "label": "Share unobligated",
+     "expr": "100 * sum(unobligated_balance_end_of_period) / nullif(sum(total_budgetary_resources), 0)",
+     "format": "percent",
+     "hint": "Unobligated balance as a share of total budgetary resources."
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Resources",
+     "label": "agency",
+     "value": "sum(total_budgetary_resources)",
+     "unit": "resources",
+     "format": "billions",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Unobligated",
+     "label": "agency",
+     "value": "sum(unobligated_balance_end_of_period)",
+     "unit": "unobligated",
+     "format": "billions",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Share unobligated",
+     "label": "agency",
+     "value": "100 * sum(unobligated_balance_end_of_period) / nullif(sum(total_budgetary_resources), 0)",
+     "unit": "share",
+     "format": "percent",
+     "limit": 15,
+     "min": 20
+    }
+   ]
+  },
+  {
+   "id": "gifts",
+   "label": "Gift accounts",
+   "subtitle": "Accounts with gift, donation or bequest in the title.",
+   "stats": [
+    {
+     "label": "Gift accounts",
+     "expr": "count(DISTINCT tafs) FILTER (WHERE is_gift_account)",
+     "hint": "Distinct accounts flagged by title."
+    },
+    {
+     "label": "Balances, summed",
+     "expr": "sum(unobligated_balance_end_of_period) FILTER (WHERE is_gift_account)",
+     "format": "millions",
+     "hint": "Year-end unobligated balances added across the rows shown. Pick one fiscal year for a single year's total."
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Unobligated by year",
+     "label": "fiscal_year",
+     "value": "sum(unobligated_balance_end_of_period)",
+     "unit": "unobligated",
+     "format": "millions",
+     "where": "is_gift_account"
+    },
+    {
+     "type": "year",
+     "title": "Gift accounts by year",
+     "label": "fiscal_year",
+     "value": "count(DISTINCT tafs)",
+     "unit": "accounts",
+     "where": "is_gift_account"
+    },
+    {
+     "type": "top",
+     "title": "Largest, latest year",
+     "label": "tafs",
+     "value": "sum(unobligated_balance_end_of_period)",
+     "unit": "unobligated",
+     "format": "millions",
+     "limit": 15,
+     "where": "is_gift_account AND fiscal_year = (SELECT max(fiscal_year) FROM t)",
+     "wide": true
+    }
+   ]
+  },
+  {
+   "id": "time",
+   "label": "Over time",
+   "subtitle": "Year by year.",
+   "stats": [
+    {
+     "label": "Fiscal years",
+     "expr": "count(DISTINCT fiscal_year)"
+    },
+    {
+     "label": "Accounts",
+     "expr": "count(DISTINCT tafs)",
+     "hint": "Distinct accounts across the years shown."
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Resources",
+     "label": "fiscal_year",
+     "value": "sum(total_budgetary_resources)",
+     "unit": "resources",
+     "format": "billions"
+    },
+    {
+     "type": "year",
+     "title": "Unobligated",
+     "label": "fiscal_year",
+     "value": "sum(unobligated_balance_end_of_period)",
+     "unit": "unobligated",
+     "format": "billions"
+    },
+    {
+     "type": "year",
+     "title": "Accounts",
+     "label": "fiscal_year",
+     "value": "count(*)",
+     "unit": "account-years"
+    },
+    {
+     "type": "stack",
+     "title": "Resources by account type",
+     "x": "fiscal_year",
+     "series": "CASE WHEN financing = 'FINANCING ACCOUNTS' THEN 'Financing' ELSE 'Non-financing' END",
+     "kind": "year",
+     "seriesLimit": 2,
+     "value": "sum(total_budgetary_resources)",
+     "format": "billions",
+     "unit": "resources",
+     "seriesOrder": [
+      "Non-financing",
+      "Financing"
+     ]
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "bureau",
+   "fiscal_year",
+   "financing",
+   "is_gift_account",
+   "availability",
+   "end_year"
+  ],
+  "measures": [
+   {
+    "id": "resources",
+    "label": "Resources (sum)",
+    "expr": "sum(total_budgetary_resources)",
+    "format": "billions"
+   },
+   {
+    "id": "unobligated",
+    "label": "Unobligated (sum)",
+    "expr": "sum(unobligated_balance_end_of_period)",
+    "format": "billions"
+   },
+   {
+    "id": "obligations",
+    "label": "New obligations (sum)",
+    "expr": "sum(new_obligations_and_upward_adjustments)",
+    "format": "billions"
+   }
+  ]
+ },
+ "record": {
+  "key": "rid",
+  "title": "{tafs}",
+  "subtitle": "FY{fiscal_year} \u00b7 {agency} \u00b7 {bureau}",
+  "sections": [
+   {
+    "title": "Account",
+    "columns": [
+     "agency",
+     "bureau",
+     "tafs",
+     "fiscal_year",
+     "financing",
+     "availability",
+     "begin_year",
+     "end_year",
+     "is_gift_account"
+    ]
+   },
+   {
+    "title": "Position at September",
+    "columns": [
+     "unobligated_balance_brought_forward",
+     "budget_authority_total",
+     "total_budgetary_resources",
+     "new_obligations_and_upward_adjustments",
+     "unobligated_balance_end_of_period",
+     "outlays_gross_change_in_obligated_balance",
+     "outlays_net"
+    ]
+   },
+   {
+    "title": "Codes",
+    "columns": [
+     "agency_code",
+     "account_code",
+     "allocation_code"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "Dataset on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/sf133-budget-execution"
+   },
+   {
+    "label": "OMB SF-133 reports",
+    "href": "https://portal.max.gov/portal/document/SF133/Budget/"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same account, other years",
+    "cols": [
+     "tafs"
+    ],
+    "title": "FY{fiscal_year}",
+    "sub": "{resources_label} total resources",
+    "limit": 9
+   }
+  ]
+ }
+}

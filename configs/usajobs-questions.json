@@ -1,0 +1,398 @@
+{
+ "id": "usajobs-questions",
+ "title": "USAJOBS questions",
+ "blurb": "Every question from the questionnaires, searchable.",
+ "hfDataset": "abigailhaddad/usajobs-questionnaires",
+ "source": {
+  "format": "parquet",
+  "discover": {
+   "hfDataset": "abigailhaddad/usajobs-questionnaires",
+   "path": "data/questions"
+  },
+  "materialize": true
+ },
+ "key": "question_id",
+ "covers": "One row per question, in order within its questionnaire. The same wording appears in many questionnaires.",
+ "caveats": [
+  "Repetition is high: a few questions appear in tens of thousands of questionnaires. Do not count each row as a different question.",
+  "Templates with no applicant answers. Email addresses were removed from the text.",
+  "Coverage is the questionnaires linked from the announcements collected so far."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/usajobs-questionnaires"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/usajobs-questionnaires"
+  }
+ ],
+ "searchColumns": [
+  "question_text",
+  "agency",
+  "announcement_number"
+ ],
+ "defaultSort": {
+  "col": "questionnaire_id",
+  "dir": "asc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "question_id",
+   "label": "Question id",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "question_text",
+   "label": "Question",
+   "type": "text"
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "The agency line printed on the questionnaire."
+  },
+  {
+   "key": "section_kind",
+   "label": "Section kind",
+   "type": "text",
+   "format": "code",
+   "filter": "select",
+   "help": "Eligibility, preference, conditions and assessment sections, as the portal groups them."
+  },
+  {
+   "key": "section",
+   "label": "Section",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "question_type",
+   "label": "Answer type",
+   "type": "text",
+   "format": "code",
+   "filter": "select",
+   "valueLabels": {
+    "single_choice": "Single choice",
+    "multi_choice": "Multiple choice",
+    "free_text": "Free text",
+    "dropdown": "Dropdown"
+   }
+  },
+  {
+   "key": "question_number",
+   "label": "No.",
+   "type": "number",
+   "filter": "range",
+   "help": "The number printed in the questionnaire."
+  },
+  {
+   "key": "n_options",
+   "label": "Choices",
+   "type": "number",
+   "filter": "range"
+  },
+  {
+   "key": "announcement_number",
+   "label": "Announcement number",
+   "type": "text"
+  },
+  {
+   "key": "questionnaire_id",
+   "label": "Questionnaire id",
+   "type": "text"
+  },
+  {
+   "key": "question_ordinal",
+   "label": "Position in questionnaire",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "block_index",
+   "label": "Section number",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "trailing_text",
+   "label": "Note after the question",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "options_lettered",
+   "label": "Choices lettered",
+   "type": "bool",
+   "show": false
+  },
+  {
+   "key": "options_text",
+   "label": "Answer choices",
+   "type": "text",
+   "show": false,
+   "expr": "array_to_string(list_transform(options, o -> coalesce(o.letter || '. ', '') || o.\"text\"), chr(10))"
+  },
+  {
+   "key": "choices",
+   "label": "Choices (count)",
+   "type": "text",
+   "show": false,
+   "expr": "CAST(TRY_CAST(n_options AS INTEGER) AS VARCHAR)"
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
+   "label": "Questions",
+   "subtitle": "Search the wording of every question.",
+   "stats": [
+    {
+     "label": "Questions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Distinct wordings",
+     "expr": "count(DISTINCT question_text)",
+     "hint": "Different question texts. Many questions repeat."
+    },
+    {
+     "label": "Questionnaires",
+     "expr": "count(DISTINCT questionnaire_id)"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Section kind",
+     "label": "upper(substr(section_kind, 1, 1)) || substr(section_kind, 2)",
+     "unit": "questions",
+     "limit": 6
+    },
+    {
+     "type": "top",
+     "title": "Answer type",
+     "label": "CASE question_type WHEN 'single_choice' THEN 'Single choice' WHEN 'multi_choice' THEN 'Multiple choice' WHEN 'free_text' THEN 'Free text' WHEN 'dropdown' THEN 'Dropdown' ELSE question_type END",
+     "unit": "questions",
+     "limit": 6
+    }
+   ]
+  },
+  {
+   "id": "common",
+   "label": "Common questions",
+   "subtitle": "The wordings asked most often.",
+   "stats": [
+    {
+     "label": "Distinct wordings",
+     "expr": "count(DISTINCT question_text)"
+    },
+    {
+     "label": "Questions",
+     "expr": "count(*)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Most repeated wordings",
+     "label": "question_text",
+     "unit": "times asked",
+     "limit": 25,
+     "wide": true
+    },
+    {
+     "type": "top",
+     "title": "Most repeated free-text",
+     "label": "question_text",
+     "unit": "times asked",
+     "limit": 15,
+     "where": "question_type = 'free_text'",
+     "wide": true
+    }
+   ]
+  },
+  {
+   "id": "agencies",
+   "label": "By agency",
+   "subtitle": "Who asks what.",
+   "stats": [
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Questionnaires",
+     "expr": "count(DISTINCT questionnaire_id)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "top",
+     "title": "Questions",
+     "label": "agency",
+     "unit": "questions",
+     "limit": 15
+    },
+    {
+     "type": "stack",
+     "title": "Section kind by agency",
+     "x": "agency",
+     "series": "upper(substr(section_kind, 1, 1)) || substr(section_kind, 2)",
+     "kind": "category",
+     "limit": 10,
+     "seriesLimit": 5,
+     "unit": "questions",
+     "seriesOrder": [
+      "Assessment",
+      "Eligibility",
+      "Preference",
+      "Conditions",
+      "Unknown"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "types",
+   "label": "Kinds",
+   "subtitle": "Section and answer types.",
+   "stats": [
+    {
+     "label": "Free text",
+     "expr": "count(*) FILTER (WHERE question_type = 'free_text')",
+     "hint": "Questions answered in writing."
+    },
+    {
+     "label": "Assessment",
+     "expr": "count(*) FILTER (WHERE section_kind = 'assessment')"
+    }
+   ],
+   "charts": [
+    {
+     "type": "stack",
+     "title": "Answer type by section kind",
+     "x": "upper(substr(section_kind, 1, 1)) || substr(section_kind, 2)",
+     "series": "CASE question_type WHEN 'single_choice' THEN 'Single choice' WHEN 'multi_choice' THEN 'Multiple choice' WHEN 'free_text' THEN 'Free text' WHEN 'dropdown' THEN 'Dropdown' ELSE question_type END",
+     "kind": "category",
+     "limit": 6,
+     "seriesLimit": 4,
+     "unit": "questions",
+     "seriesOrder": [
+      "Single choice",
+      "Free text",
+      "Multiple choice",
+      "Dropdown"
+     ]
+    },
+    {
+     "type": "top",
+     "title": "Choices per question",
+     "label": "CAST(TRY_CAST(n_options AS INTEGER) AS VARCHAR)",
+     "unit": "questions",
+     "limit": 15
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "section_kind",
+  "columns": [
+   "section_kind",
+   "question_type",
+   "agency",
+   "section",
+   "choices"
+  ],
+  "measures": []
+ },
+ "record": {
+  "key": "question_id",
+  "title": "Question {question_number}: {section}",
+  "subtitle": "{agency} \u00b7 {announcement_number}",
+  "sections": [
+   {
+    "title": "Where it sits",
+    "columns": [
+     "section",
+     "section_kind",
+     "question_number",
+     "question_type",
+     "n_options",
+     "options_lettered"
+    ]
+   },
+   {
+    "title": "Questionnaire",
+    "columns": [
+     "questionnaire_id",
+     "agency",
+     "announcement_number"
+    ]
+   }
+  ],
+  "text": [
+   {
+    "label": "Question",
+    "column": "question_text"
+   },
+   {
+    "label": "Answer choices",
+    "column": "options_text",
+    "skipEmpty": true
+   },
+   {
+    "label": "Note after the question",
+    "column": "trailing_text",
+    "skipEmpty": true
+   }
+  ],
+  "links": [
+   {
+    "label": "Whole questionnaire",
+    "href": "?d=usajobs-questionnaires&r={questionnaire_id:enc}"
+   },
+   {
+    "label": "Original questionnaire page",
+    "href": "https://apply.usastaffing.gov/ViewQuestionnaire/{questionnaire_id:enc}"
+   },
+   {
+    "label": "Dataset on Hugging Face",
+    "href": "https://huggingface.co/datasets/abigailhaddad/usajobs-questionnaires"
+   }
+  ],
+  "related": [
+   {
+    "label": "Other questions in this questionnaire",
+    "cols": [
+     "questionnaire_id"
+    ],
+    "title": "{question_number}. {question_text}",
+    "sub": "{section}",
+    "limit": 10
+   },
+   {
+    "label": "Questionnaires with this exact wording",
+    "cols": [
+     "question_text"
+    ],
+    "lazy": true,
+    "button": "Find questionnaires that ask this exact question",
+    "title": "{agency}",
+    "sub": "{announcement_number} \u00b7 {section}",
+    "limit": 10
+   }
+  ]
+ }
+}

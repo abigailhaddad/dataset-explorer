@@ -40,7 +40,9 @@ def fmtv(col,v):
         if str(v) in vl: return vl[str(v)]
         w=str(v).replace('_',' '); return w[:1].upper()+w[1:]
     if t=='number':
-        if col.get('format')=='currency': return '$'+f"{v:,.0f}"
+        if col.get('format')=='currency':
+            from decimal import Decimal, ROUND_HALF_UP
+            return '$'+f"{Decimal(repr(v)).quantize(Decimal('1'), rounding=ROUND_HALF_UP):,}"
         s=f"{v:,.2f}".rstrip('0').rstrip('.')
         return s
     return str(v)
@@ -55,7 +57,7 @@ with sync_playwright() as p:
         names=[d[0] for d in c.description]
         if not row: print('KEY NOT FOUND in source:',key); bad+=1; continue
         row=dict(zip(names,row[0]))
-        pg.goto('http://127.0.0.1:8769/?d=%s&r=%s'%(ds,quote(key,safe='')))
+        pg.goto(os.environ.get('EXPLORER_BASE','http://127.0.0.1:8769/')+'?d=%s&r=%s'%(ds,quote(key,safe='')))
         pg.wait_for_selector('#recordpane .rec-title', timeout=240000)
         pg.wait_for_timeout(2500)
         got=pg.evaluate("""()=>{
@@ -67,8 +69,10 @@ with sync_playwright() as p:
           return {title:document.querySelector('#recordpane .rec-title').textContent, sub:(document.querySelector('#recordpane p.site-subtitle')||{}).textContent||'', cards, back:document.querySelector('#recordpane .back-link').getAttribute('href')};
         }""")
         print('\n== %s key=%s'%(ds,key[:60]))
+        def sv(v):
+            return str(int(v)) if isinstance(v,float) and v==int(v) else str(v)
         def tpl(t):
-            return re.sub(r'\{(\w+)(:enc)?\}', lambda m:(quote(str(row[m.group(1)]),safe='') if m.group(2) else ('' if row[m.group(1)] is None else (str(row[m.group(1)])))), t)
+            return re.sub(r'\{(\w+)(:enc)?\}', lambda m:(quote(sv(row[m.group(1)]),safe='') if m.group(2) else ('' if row[m.group(1)] is None else sv(row[m.group(1)]))), t)
         exp_title=next((t for t in (tpl(x).strip() for x in ([rec['title']] if isinstance(rec['title'],str) else rec['title'])) if t), str(row[rec['key']]))
         total+=1
         ok=got['title']==exp_title; bad+=0 if ok else 1; print(('OK  ' if ok else 'BAD ')+'title',repr(got['title'][:70]))
@@ -101,7 +105,7 @@ with sync_playwright() as p:
             if si and 'min' in si and not (float(row[si['col']] or 0)>=si['min']): continue
             h=tpl(l['href'])
             if h: exp_links.append((l['label'],h))
-        gl=[(a,h.replace('%20',' ')) for a,h in (src[0]['links'] if src else [])]
+        gl=[(a,h.replace('%20',' ').replace(os.environ.get('EXPLORER_BASE','http://127.0.0.1:8769/'),'')) for a,h in (src[0]['links'] if src else [])]
         exp_links=[(a,h.replace('%20',' ')) for a,h in exp_links]  # the source data may hold the URL with or without %20
         total+=1; ok=gl==exp_links; bad+=0 if ok else 1
         print(('OK  ' if ok else 'BAD ')+'source links', gl if not ok else len(gl), '' if ok else 'expected %s'%exp_links)

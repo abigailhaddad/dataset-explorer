@@ -3,3 +3,7 @@ verify/out_*.json
 verify/pv_*.json
 verify/_l.json
 verify/one_*.json
+dist/
+dist-sites/
+.DS_Store
+__pycache__/

@@ -44,3 +44,26 @@ To rerun: `uv run --with playwright --with duckdb python verify/<script>.py`, wi
 - A range with From after To shows "From is after To" in the popover and on the page, and runs no query.
 - Download CSV has a Raw values / Labels choice. EEOC filtered to Veterans Affairs and race: 389 rows in both modes, same file hashes as DuckDB, 0 field mismatches in raw, 0 Yes/No mismatches in labels.
 - `uitest.py` now checks the narrow box (none on 2 options, present on 12) and the text filter with 64 suggestions. `uitest.py` and `navtest.py` pass. The data-view check scripts read output files that are not in the repo, so I did not rerun them; the paths they cover did not change.
+
+## 2026-11-06: SF-133 and USAJOBS questionnaires
+
+Checked against DuckDB (Python) reading the same published files, with and without a filter. Run one at a time on a local server.
+
+| What | Script | Checks | Mismatches |
+|---|---|---|---|
+| SF-133: Accounts, By agency, Gift accounts, Over time (no filter, fiscal year 2025, agency contains Defense) | `check_sf133.py` | 72 | 0 |
+| USAJOBS questionnaires: Questionnaires, By agency, Over time, Reading (no filter, agency contains Veterans, department Defense) | `check_questionnaires.py` | 57 | 0 |
+| USAJOBS questions: Questions, Common questions, By agency, Kinds (no filter, agency, section kind, a search) | `check_questions.py` | 68 | 0 |
+| Pivots, 6 (2 per dataset) | `check_pivot_new.py` | 18 | 0 |
+| Record pages, 5 rows per dataset (every field, title, subtitle, text, source links) | `reccheck.py` with `keys_new.json` | SF-133 110, questionnaires 115, questions 75 | 0 |
+| Questionnaire outline (5 questionnaires: questions, order, options, section headings) and the lazy "same wording" count | `check_outline.py` | 24 | 0 |
+
+Things the checks found:
+
+- Chart labels on code columns showed raw codes (`ok`, `monster_not_parsed`, `single_choice`). The new configs use plain-word labels in the chart's own expression.
+- A chart over `n_options` labelled its bars `2.0`. The label now casts to a whole number.
+- "Top 25 of 19,999" under the most-repeated-wordings chart: the chart reads at most 20,000 groups, so the note now says "more than 19,999".
+- An "average length" chart said "0.01 blank, not shown", the average of the blank group. `"blank": false` turns the note off for averages.
+- Check artifacts, not page errors: a currency amount ending in .50 rounds up in the page and to even in Python; Python printed `3.0` for a number the page prints as `3`; the page treats an empty string as blank, so one empty question text is not counted as a distinct wording (156,120 on the page, 156,121 with the empty string).
+
+Not checked: Firefox and Safari; source links for every row (the OMB and Hugging Face links were not fetched); hover tooltips.

@@ -3,7 +3,7 @@ from urllib.parse import quote
 from playwright.sync_api import sync_playwright
 import os
 EXE=os.environ.get('CHROME_HEADLESS_SHELL')  # path to a Playwright chrome-headless-shell
-base='http://127.0.0.1:8769/'
+base=os.environ.get('EXPLORER_BASE','http://127.0.0.1:8769/')
 def run(jobs, outpath, width=1280, shots=None):
     res={}
     with sync_playwright() as p:

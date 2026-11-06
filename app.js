@@ -195,6 +195,16 @@ function checkConfig(c) {
     for (const k of sec.columns) if (!colByKey[k]) bad('record section ' + sec.title + ': unknown column ' + k);
   }
   for (const t of r.text || []) if (!colByKey[t.column]) bad('record.text: unknown column ' + t.column);
+  if (r.outline) {
+    const o = r.outline;
+    if (!o.discover || !o.discover.hfDataset || !o.discover.path) bad('record.outline needs discover { hfDataset, path }');
+    if (!o.where || !o.value) bad('record.outline needs where and value');
+    for (const k of ['block', 'section', 'kind', 'ordinal', 'number', 'text', 'type', 'options', 'trailing', 'id']) {
+      if (!o.columns || !o.columns[k]) bad('record.outline.columns needs ' + k);
+    }
+    if (o.intros && (!o.intros.discover || !o.intros.block || !o.intros.text)) bad('record.outline.intros needs discover, block and text');
+    if (!colByKey[o.value]) bad('record.outline.value: unknown column ' + o.value);
+  }
   for (const l of r.links || []) templates.push(l.href);
   for (const rel of r.related || []) {
     for (const k of rel.cols) if (!colByKey[k]) bad('record.related: unknown column ' + k);
@@ -262,8 +272,8 @@ async function runQuery(sql, params) {
 // List the data files of a Hugging Face dataset folder now, so the page keeps
 // working when the files are renamed or merged. The tree API returns at most
 // 1000 entries a page and names the next page in the Link header.
-async function discoverUrls(d) {
-  const ext = '.' + config.source.format;
+async function discoverUrls(d, format) {
+  const ext = '.' + (format || config.source.format);
   const found = [];
   let next = 'https://huggingface.co/api/datasets/' + d.hfDataset + '/tree/main/' + d.path;
   while (next) {
@@ -974,6 +984,8 @@ function renderHeading() {
 function fmtNumber(spec, n) {
   const v = Number(n);
   if (spec.format === 'currency') return '$' + v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (spec.format === 'billions') return '$' + (v / 1e9).toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'B';
+  if (spec.format === 'millions') return '$' + (v / 1e6).toLocaleString(undefined, { maximumFractionDigits: 1 }) + 'M';
   if (spec.format === 'percent') return v.toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
   return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
@@ -1055,7 +1067,7 @@ function buildCharts(specs) {
     const stack = spec.type === 'stack';
     const timeKind = stack && (spec.kind === 'month' || spec.kind === 'year');
     const horizontal = spec.type === 'top' || spec.type === 'items' || (stack && !timeKind);
-    const card = h('div', 'chart-card');
+    const card = h('div', spec.wide ? 'chart-card wide' : 'chart-card');
     const box = h('div', 'chart-box');
     const canvas = document.createElement('canvas');
     canvas.setAttribute('role', 'img');
@@ -1080,7 +1092,7 @@ function buildCharts(specs) {
     if (horizontal) {
       labelAxis.ticks.callback = function (value) {
         const s = this.getLabelForValue(value);
-        const max = Math.max(12, Math.min(34, Math.floor(this.chart.width / 17)));
+        const max = Math.max(12, Math.min(spec.wide ? 80 : 34, Math.floor(this.chart.width / (spec.wide ? 10 : 17))));
         return s.length > max ? s.slice(0, max - 1) + '…' : s;
       };
     }
@@ -1190,13 +1202,13 @@ function drawGroupChart(o, rows) {
     const limit = spec.limit || 10;
     labels = kept.slice(0, limit).map((r) => r.l);
     values = kept.slice(0, limit).map((r) => Number(r.v));
-    if (kept.length > limit) foot = 'Top ' + limit + ' of ' + kept.length.toLocaleString() + '. ';
+    if (kept.length > limit) foot = 'Top ' + limit + ' of ' + (rows.length >= CHART_GROUP_LIMIT ? 'more than ' : '') + kept.length.toLocaleString() + '. ';
   } else {
     labels = fillPeriods(spec.type, spec.title, kept.map((r) => r.l));
     const byLabel = new Map(kept.map((r) => [r.l, Number(r.v)]));
     values = labels.map((l) => byLabel.get(l) || 0);
   }
-  if (blanks) foot += fmtNumber(spec, blanks) + ' blank, not shown.';
+  if (blanks && spec.blank !== false) foot += fmtNumber(spec, blanks) + ' blank, not shown.';
   if (!labels.length) foot = 'No rows match.';
   o.foot.textContent = foot.trim();
   o.box.style.height = spec.type === 'top' ? Math.max(90, labels.length * 26 + 40) + 'px' : '200px';
@@ -1261,7 +1273,7 @@ function drawStackChart(o, rows) {
   }
   if (folded) foot += 'Smaller groups are under Other. ';
   if (spec.note) foot += spec.note + ' ';
-  if (blanks) foot += fmtNumber(spec, blanks) + ' blank, not shown.';
+  if (blanks && spec.blank !== false) foot += fmtNumber(spec, blanks) + ' blank, not shown.';
   if (!xs.length) foot = 'No rows match.';
   o.foot.textContent = foot.trim();
   o.box.style.height = timeKind ? '260px' : Math.max(120, xs.length * 28 + 80) + 'px';
@@ -1347,6 +1359,7 @@ async function refreshPivot(id, whereSql, params) {
 function pivotCellText(measure, v) {
   const n = Number(v);
   if (measure.format === 'currency') return '$' + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (measure.format === 'billions' || measure.format === 'millions') return fmtNumber(measure, n);
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
@@ -1651,6 +1664,32 @@ function recordCard(title) {
 async function showRelated(card, rel, row) {
   const values = rel.cols.map((k) => row[k]);
   if (values.some((v) => v === null || v === undefined || v === '')) return;
+  if (rel.lazy) {
+    // A big table: look only when asked.
+    const box = h('div', 'rel-lazy');
+    const btn = h('button', '', rel.button || 'Show ' + rel.label.toLowerCase());
+    btn.type = 'button';
+    box.append(btn);
+    card.append(box);
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Looking…';
+      try {
+        const before = card.children.length;
+        await relatedRows(card, rel, row, values);
+        if (card.children.length === before) box.replaceChildren(h('p', 'summary', 'No other rows.'));
+        else box.remove();
+      } catch (e) {
+        console.error(e);
+        box.replaceChildren(h('p', 'msg error', 'Could not load: ' + e.message));
+      }
+    });
+    return;
+  }
+  await relatedRows(card, rel, row, values);
+}
+
+async function relatedRows(card, rel, row, values) {
   const where = rel.cols.map((k) => 'CAST(' + qi(k) + ' AS VARCHAR) = ?').join(' AND ') + ' AND CAST(' + qi(config.key) + ' AS VARCHAR) <> ?';
   const params = [...values.map(String), String(row[config.key])];
   const count = await runQuery('SELECT count(*) AS n FROM t WHERE ' + where, params);
@@ -1721,6 +1760,99 @@ function moreBlock(spec, row) {
   return card;
 }
 
+// The questions of one questionnaire, in order, grouped by section. Reads the
+// questions file for that one id when the record opens.
+let outlineFiles = {};
+async function outlineSource(prefix, discover) {
+  if (!outlineFiles[prefix]) {
+    const urls = await discoverUrls(discover, 'parquet');
+    outlineFiles[prefix] = await registerFiles(prefix, urls, 'parquet');
+  }
+  return 'read_parquet(' + outlineFiles[prefix] + ', union_by_name=true)';
+}
+
+function outlineBlock(spec, row) {
+  const card = recordCard(spec.label || 'Questions');
+  const out = h('div', 'outline');
+  out.append(h('p', 'summary', 'Reading the questions…'));
+  card.append(out);
+  const k = spec.columns;
+  (async () => {
+    try {
+      const rel = await outlineSource('outq', spec.discover);
+      const opts = 'array_to_string(list_transform(' + qi(k.options) + ', o -> coalesce(o.letter, \'\') || chr(30) || o."text"), chr(31))';
+      const rows = await runQuery(
+        'SELECT ' + [qi(k.block), qi(k.section), qi(k.kind), qi(k.ordinal), qi(k.number), qi(k.text), qi(k.type), opts + ' AS opts', qi(k.trailing), qi(k.id)].join(', ') +
+          ' FROM ' + rel + ' WHERE CAST(' + qi(spec.where) + ' AS VARCHAR) = ? ORDER BY ' + qi(k.block) + ', ' + qi(k.ordinal),
+        [String(row[spec.value])]
+      );
+      const intros = {};
+      if (spec.intros) {
+        const irel = await outlineSource('outs', spec.intros.discover);
+        const irows = await runQuery(
+          'SELECT ' + qi(spec.intros.block) + ' AS b, ' + qi(spec.intros.text) + ' AS t FROM ' + irel + ' WHERE CAST(' + qi(spec.where) + ' AS VARCHAR) = ?',
+          [String(row[spec.value])]
+        );
+        for (const r of irows) if (r.t) intros[String(r.b)] = String(r.t);
+      }
+      out.replaceChildren();
+      if (!rows.length) {
+        out.append(h('p', 'summary', spec.empty || 'No questions are stored for this page.'));
+        return;
+      }
+      const plain = [];
+      let current = null;
+      let list = null;
+      for (const r of rows) {
+        const group = String(r[k.block]) + '|' + String(r[k.section]);
+        if (group !== current) {
+          current = group;
+          const head = h('h3', 'outline-section', r[k.section] === null ? 'Questions' : String(r[k.section]));
+          if (r[k.kind]) head.append(h('span', 'tag', humanCode(r[k.kind])));
+          out.append(head);
+          plain.push('', String(r[k.section] || 'Questions'));
+          const intro = intros[String(r[k.block])];
+          if (intro) {
+            out.append(h('p', 'summary', intro));
+            plain.push(intro);
+          }
+          list = h('ol', 'outline-list');
+          out.append(list);
+        }
+        const li = document.createElement('li');
+        if (r[k.number] !== null) li.value = Number(r[k.number]);
+        const a = h('a', 'outline-q', String(r[k.text] || '(no text)'));
+        if (spec.link && r[k.id]) {
+          a.href = '?d=' + encodeURIComponent(spec.link) + '&r=' + encodeURIComponent(r[k.id]);
+          a.dataset.soft = '1';
+        }
+        li.append(a);
+        if (r[k.type]) li.append(h('span', 'tag', humanCode(r[k.type])));
+        plain.push((r[k.number] === null ? '-' : r[k.number] + '.') + ' ' + String(r[k.text] || ''));
+        if (r.opts) {
+          const ul = h('ul', 'outline-options');
+          for (const o of String(r.opts).split(String.fromCharCode(31))) {
+            const [letter, text] = o.split(String.fromCharCode(30));
+            ul.append(h('li', '', (letter ? letter + '. ' : '') + (text || '')));
+            plain.push('   ' + (letter ? letter + '. ' : '') + (text || ''));
+          }
+          li.append(ul);
+        }
+        if (r[k.trailing]) {
+          li.append(h('p', 'summary', String(r[k.trailing])));
+          plain.push('   ' + String(r[k.trailing]));
+        }
+        list.append(li);
+      }
+      card.querySelector('h2').after(copyButton(() => plain.join('\n').trim()));
+    } catch (e) {
+      console.error(e);
+      out.replaceChildren(h('p', 'msg error', 'Could not load the questions: ' + e.message));
+    }
+  })();
+  return card;
+}
+
 async function showRecord() {
   el('listpane').hidden = true;
   el('recordpane').hidden = false;
@@ -1740,7 +1872,7 @@ async function showRecord() {
     : [];
   setStatus('');
   if (!found.length) {
-    document.title = config.title;
+    document.title = tabTitle(config.title);
     box.append(back, h('h2', 'rec-missing', key ? 'No record with that key' : 'No record key in the link'));
     if (key) box.append(h('p', 'summary', 'Key: ' + key));
     box.append(h('p', 'summary', 'The record may have been removed, or the link is incomplete.'));
@@ -1748,7 +1880,7 @@ async function showRecord() {
   }
   const row = found[0];
   const title = fillFirst(rec.title, row) || String(row[rec.key]);
-  document.title = title + ' · ' + config.title;
+  document.title = title + ' · ' + tabTitle(config.title);
 
   const nav = h('div', 'rec-nav');
   nav.append(back);
@@ -1814,6 +1946,7 @@ async function showRecord() {
   for (const t of rec.text || []) {
     const card = recordCard(t.label);
     const value = row[t.column];
+    if ((value === null || value === '') && t.skipEmpty) continue;
     if (value === null || value === '') {
       card.append(h('p', 'summary', '—'));
     } else {
@@ -1822,6 +1955,7 @@ async function showRecord() {
     }
     box.append(card);
   }
+  if (rec.outline) box.append(outlineBlock(rec.outline, row));
   for (const m of rec.more || []) {
     // skipWhenZero names a count column: with none, there is nothing to load.
     if (m.skipWhenZero && Number(row[m.skipWhenZero]) === 0) continue;
@@ -1833,8 +1967,14 @@ async function showRecord() {
   const relBox = related;
   related.hidden = true;
   const neighbors = recordNeighbors(String(row[rec.key]));
-  await Promise.all((rec.related || []).map((r) => showRelated(relBox, r, row)));
-  related.hidden = related.children.length < 2;
+  // One slot per list, in config order, however long each query takes.
+  const slots = (rec.related || []).map(() => {
+    const slot = document.createElement('div');
+    relBox.append(slot);
+    return slot;
+  });
+  await Promise.all((rec.related || []).map((r, i) => showRelated(slots[i], r, row)));
+  related.hidden = slots.every((slot) => !slot.children.length);
 
   const nb = await neighbors;
   for (const [label, k] of [['← Previous', nb.prev], ['Next →', nb.next]]) {
@@ -2070,7 +2210,11 @@ function findEntry(index, id) {
 
 function renderNav(index, current) {
   const nav = el('nav');
-  nav.replaceChildren('Datasets: ');
+  if (site && index.length === 1) {
+    nav.hidden = true; // one table: nothing to switch between
+    return;
+  }
+  nav.replaceChildren(site ? 'Tables: ' : 'Datasets: ');
   index.forEach((d, i) => {
     if (i) nav.append(h('span', 'sep', '·'));
     if (d.id === current) {
@@ -2099,8 +2243,8 @@ function renderHome(index) {
 }
 
 function renderHeader() {
-  document.title = config.title;
-  el('title').textContent = config.title;
+  document.title = tabTitle(config.title);
+  el('title').textContent = site ? site.title : config.title;
   el('covers').textContent = config.covers;
   for (const text of config.caveats || []) el('caveats').append(h('li', '', text));
   for (const l of config.links || []) {
@@ -2113,6 +2257,40 @@ function renderHeader() {
   el('explorer').hidden = false;
 }
 
+// A folder built for one dataset's own site carries site.json: the site's title,
+// its default dataset (opened with no ?d=), the datasets it holds and the footer links.
+let site = null;
+async function loadSite() {
+  try {
+    const r = await fetch('site.json');
+    site = r.ok ? await r.json() : null;
+  } catch (e) {
+    site = null;
+  }
+}
+
+// The browser tab title: the site's name, led by the table name when a site holds several.
+function tabTitle(base) {
+  if (!site) return base;
+  return base && base !== site.pageTitle ? base + ' · ' + site.pageTitle : site.pageTitle;
+}
+
+function renderFooter() {
+  const foot = document.querySelector('.site-footer p');
+  foot.replaceChildren('Tables load from Hugging Face in your browser.');
+  for (const [label, href] of [['Dataset on Hugging Face', site.hfUrl], ['Code', site.repoUrl], [site.moreLabel || 'More datasets', site.moreUrl]]) {
+    if (!href) continue;
+    foot.append(' · ');
+    const a = h('a', '', label);
+    a.href = href;
+    if (/^https?:/.test(href)) {
+      a.target = '_blank';
+      a.rel = 'noopener';
+    }
+    foot.append(a);
+  }
+}
+
 async function start() {
   try {
     const saved = localStorage.getItem('theme');
@@ -2122,7 +2300,9 @@ async function start() {
   }
   wire();
 
-  const asked = new URLSearchParams(location.search).get('d');
+  await loadSite();
+  if (site) renderFooter();
+  const asked = new URLSearchParams(location.search).get('d') || (site ? site.default : null);
   const index = await fetchJSON('configs/index.json');
   const entry = asked ? findEntry(index, asked) : null;
   renderNav(index, entry ? entry.id : null);

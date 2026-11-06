@@ -58,7 +58,7 @@ A blank in a pick-list is `__blank__`. Bad values in a link are ignored with a n
 | `pivot` | `{ "default": "<column>", "columns": [...], "measures": [{ "id", "label", "expr", "format" }] }`. A measure `expr` must be an additive aggregate such as `sum(pages)`. The page adds the "Pivot & counts" tab when this exists. |
 | `record` | The record page (below). Required. |
 
-**Stats** are `{ "label", "expr", "hint", "format" }`: `expr` is a SQL aggregate over `t`; `format` is `currency` or `percent`. Labels are 1 to 3 words.
+**Stats** are `{ "label", "expr", "hint", "format" }`: `expr` is a SQL aggregate over `t`; `format` is `currency` (whole dollars), `billions` or `millions` (the value is in dollars, shown as `$1.2B` or `$3.4M`) or `percent`. Labels are 1 to 3 words.
 
 **Charts** are `{ "type", "title", "unit", "format", "limit", ... }`. `label` and `x` are SQL expressions over `t`; `value` defaults to `count(*)`.
 
@@ -67,7 +67,7 @@ A blank in a pick-list is `__blank__`. Bad values in a link are ignored with a n
 - `items`: a bar per `{ "label", "expr" }` item, each a SQL aggregate. For flag counts and rates.
 - `stack`: `x` and `series` expressions. `kind` is `month`, `year` or `category` (default). Categories are the top `limit` by total; the biggest `seriesLimit` (default 5) series get their own color, the rest fold into Other. Series colors are the first five slots of the data-viz default palette.
 
-Blank labels are left out of the bars and counted in a note under the chart. Every chart has a "Table" with its numbers.
+Blank labels are left out of the bars and counted in a note under the chart. Set `"blank": false` on a chart whose value is an average or a ratio, where that note means nothing. When a chart groups more than 20,000 values, the note says "more than". Every chart has a "Table" with its numbers.
 
 **Columns**: `key`, `label`, `type` (`text`, `number`, `date`, `bool`), and optionally `filter` (`select`, `text`, `range`; use `text` with `suggest: true` for a column with more than about 50 values, which gives a contains box with a suggestion list instead of a checkbox list), `show: false`, `format: "currency"`, `link`, `help` (hover text), `expr` (a SQL expression for a derived column; in a config with `joins`, write main-table columns as `m.<col>`), `join`, `from`.
 
@@ -80,18 +80,36 @@ Blank labels are left out of the bars and counted in a note under the chart. Eve
 | `sections` | `[{ "title", "columns": [...] }]`: the fields shown, in cards. |
 | `text` | `[{ "label", "column" }]`: long text in a readable block with a Copy button. |
 | `links` | `[{ "label", "href", "showIf": { "col", "equals" } }]`: shown in a "Source" card. |
-| `related` | `[{ "label", "cols": [...], "title", "sub", "limit" }]`: other rows with the same value in all of `cols`, with links to their own record pages. |
+| `related` | `[{ "label", "cols": [...], "title", "sub", "limit", "lazy", "button" }]`: other rows with the same value in all of `cols`, with links to their own record pages. `"lazy": true` waits for a click (with `button` as its text), for a table too big to scan on every record. |
 | `more` | Extra tables loaded on request, for large files (the J&A attachments). |
+| `outline` | An ordered list of questions for one record, read from a questions file when the record opens: `{ "label", "discover", "where", "value", "columns": { block, section, kind, ordinal, number, text, type, options, trailing, id }, "intros": { discover, block, text }, "link", "empty" }`. `discover` is `{ hfDataset, path }`; `where` is the column in that file that matches the record's `value` column; `link` is the dataset id that question ids open in; `empty` is the message when nothing is stored. Used for questionnaires. |
 
 Templates use `{column}` for the value and `{column:enc}` for a URL-encoded one. Links must be http or https, and an empty link is dropped. The page checks the config on load and stops with a plain message if a column is missing from the file or a template names an unknown column.
 
+## One site per dataset
+
+The same engine can run as a site for one dataset. `python3 scripts/build_sites.py` writes a folder per site under `dist-sites/<slug>/` (`index.html`, `app.js`, `style.css`, `site.json`, and only that site's configs). Upload a folder at the root of any static host; nothing in it refers to the other sites.
+
+| Folder | Tables |
+|---|---|
+| `eeoc-decisions` | EEOC decisions (opens first), EEOC file listing |
+| `opm-union-contracts` | OPM union contracts |
+| `sf133-budget-execution` | SF-133 budget execution |
+| `usajobs-questionnaires` | USAJOBS questionnaires (opens first), USAJOBS questions |
+| `federal-ja-documents` | J&A documents |
+
+In a site folder, `?d=` is optional: the default table opens without it, and `?d=<id>` still picks another table of the same site. The heading, tab title, favicon letters and subtitle are the site's own. The nav lists only that site's tables (it is hidden when there is one), and an unknown `?d=` lists only those tables. The footer links to the dataset on Hugging Face, the code and "More datasets". That last link is the constant `MORE_DATASETS_URL` in `scripts/build_sites.py`, a placeholder until the adoption page has an address.
+
+`site.json`: `{ "title", "pageTitle", "default", "datasets", "hfUrl", "repoUrl", "moreLabel", "moreUrl" }`. Without it (the repo root and `./build-dist.sh`), the explorer behaves as the combined list of datasets. To add a site, add an entry to `SITES` in the script; the build stops if a config links to a dataset the site does not hold.
+
 ## Host it
 
-Any static host works: upload the folder as is. Visitors need to reach `cdn.jsdelivr.net` (DuckDB-WASM 1.29.0 and Chart.js 4.4.0, both pinned), Google Fonts and `huggingface.co`. Hugging Face allows cross-origin range requests, which is what lets the browser read parts of a Parquet file. Datasets must be public.
+Any static host works: upload the folder as is (the repo root for the combined explorer, `./build-dist.sh` for `dist/`, or one folder from `dist-sites/`). Visitors need to reach `cdn.jsdelivr.net` (DuckDB-WASM 1.29.0 and Chart.js 4.4.0, both pinned), Google Fonts and `huggingface.co`. Hugging Face allows cross-origin range requests, which is what lets the browser read parts of a Parquet file. Datasets must be public.
 
 ## Limits
 
-- First open downloads the database engine, then reads the table's metadata. Measured on a fast connection: EEOC decisions 2.3 s, DoD (3 files) 4.2 s, J&A and the EEOC listing a few seconds. The same DoD table as 87 small files took 37 s, so fewer, larger files matter.
+- First open downloads the database engine, then reads the table's metadata. Measured on a fast connection: EEOC decisions 2.3 s, DoD (3 files) 4.2 s, SF-133 accounts 6 s, USAJOBS questionnaires 12 s, J&A and the EEOC listing a few seconds. The USAJOBS questions table (949,370 rows) is read into memory once, about 13 s the first time and 7 to 9 s for each later page load. The same DoD table as 87 small files took 37 s, so fewer, larger files matter.
+- SF-133 amounts are summed over the rows shown. A row is one account in one fiscal year, so pick a fiscal year before reading a total.
 - Pick-list counts cover the whole table, not the current filters.
 - Hugging Face can throttle many fast requests (HTTP 429). The page says so. We did not see it in testing.
 - Charts use Chart.js: one color for single series, the data-viz default palette (with a legend) for stacked ones. Long labels are shortened on narrow screens; the Table under each chart and the hover tooltip have the full text.
