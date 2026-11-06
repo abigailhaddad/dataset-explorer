@@ -1054,7 +1054,7 @@ function buildCharts(specs) {
     }
     const chart = new Chart(canvas, {
       type: 'bar',
-      data: { labels: [], datasets: [{ label: unit, data: [], borderWidth: 0, borderRadius: 3, maxBarThickness: horizontal ? 18 : 28 }] },
+      data: { labels: [], datasets: [{ label: unit, data: [], borderWidth: 0, borderRadius: 3, maxBarThickness: horizontal ? 18 : 28, backgroundColor: cssVar('--chart-bar'), hoverBackgroundColor: cssVar('--chart-bar-hover') }] },
       options: {
         indexAxis: horizontal ? 'y' : 'x',
         responsive: true,
@@ -1166,7 +1166,7 @@ function drawGroupChart(o, rows) {
   o.box.style.height = spec.type === 'top' ? Math.max(90, labels.length * 26 + 40) + 'px' : '200px';
   o.chart.data.labels = labels;
   o.chart.data.datasets[0].data = values;
-  o.chart.update('none');
+  themeChart(o); // sets the bar colors, then redraws
   o.chart.resize();
   fillChartTable(o, ['', spec.unit || 'rows'], labels.map((l, i) => [l, fmtNumber(spec, values[i])]));
 }
@@ -1179,7 +1179,7 @@ function drawItemsChart(o, row) {
   o.box.style.height = Math.max(90, labels.length * 26 + 40) + 'px';
   o.chart.data.labels = labels;
   o.chart.data.datasets[0].data = values;
-  o.chart.update('none');
+  themeChart(o); // sets the bar colors, then redraws
   o.chart.resize();
   fillChartTable(o, ['', spec.unit || 'rows'], labels.map((l, i) => [l, fmtNumber(spec, values[i])]));
 }
