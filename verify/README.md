@@ -37,3 +37,10 @@ Limits:
 - Chromium (headless) only. Not Firefox or Safari.
 
 To rerun: `uv run --with playwright --with duckdb python verify/<script>.py`, with `CHROME_HEADLESS_SHELL` set to a Playwright `chrome-headless-shell` and the explorer served on port 8769 (`python3 -m http.server 8769`). Some scripts read `verify/keys.json` (the sample rows) and write their output next to it; run `drive.py <dataset> "<filter params>"` first for the `check_*` scripts.
+
+## 2026-11-06 follow-up fixes
+
+- Long lists are text filters with suggestions: EEOC agency (64 values), union (99), NAICS (686), J&A authority (205), DoD agency header (84). A text filter matches by contains, so a typed value can match several agencies. Counts were checked against DuckDB: EEOC "Veterans" 1,160 rows (49 found, 117 relief, 86 changed), union "American Federation" 584, NAICS "541" 3,625, authority "only one" 9,464, DoD "NAVY" 15,870.
+- A range with From after To shows "From is after To" in the popover and on the page, and runs no query.
+- Download CSV has a Raw values / Labels choice. EEOC filtered to Veterans Affairs and race: 389 rows in both modes, same file hashes as DuckDB, 0 field mismatches in raw, 0 Yes/No mismatches in labels.
+- `uitest.py` now checks the narrow box (none on 2 options, present on 12) and the text filter with 64 suggestions. `uitest.py` and `navtest.py` pass. The data-view check scripts read output files that are not in the repo, so I did not rerun them; the paths they cover did not change.

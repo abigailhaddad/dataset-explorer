@@ -46,6 +46,10 @@
           <button id="addfilter" type="button" class="primary" aria-haspopup="dialog" aria-expanded="false" aria-controls="filterpop">+ Add Filter</button>
           <button id="copy" type="button">Copy Link</button>
           <button id="csv" type="button">Download CSV</button>
+          <select id="csvmode" aria-label="CSV column names and values" title="Raw: column keys and stored codes. Labels: plain column names, Yes/No and plain-word codes.">
+            <option value="raw">Raw values</option>
+            <option value="labels">Labels</option>
+          </select>
           <a id="fulllink" class="full-dataset-link" target="_blank" rel="noopener" hidden></a>
         </div>
         <div id="filterpop" class="popover" role="dialog" aria-label="Filter" hidden>

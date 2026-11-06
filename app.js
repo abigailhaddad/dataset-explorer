@@ -22,6 +22,7 @@ import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0
 const BLANK = '__blank__';
 const EXPORT_LIMIT = 250000;
 const FACET_LIMIT = 500;
+const SUGGEST_LIMIT = 200; // values offered by a text filter marked suggest
 const NARROW_MIN = 10; // show the "Narrow the list" box only above this many options
 const CHART_GROUP_LIMIT = 20000;
 const PAGE_SIZES = [10, 25, 50, 100, 200];
@@ -55,6 +56,7 @@ let materialized = false;
 let facetsLoaded = false;
 let listBuilt = false;
 const facets = {}; // column key -> { truncated, items: [{ value, label, n }] }
+const suggestions = {}; // column key -> the most common values, for a text filter marked suggest
 
 // The one owner of what the user is looking at.
 const view = {
@@ -374,6 +376,18 @@ async function loadFacets() {
     };
   }
   facetsLoaded = true;
+}
+
+// The most common values of a column, for the suggestion list of a text filter.
+async function loadSuggestions(c) {
+  if (!suggestions[c.key]) {
+    const rows = await runQuery(
+      'SELECT CAST(' + qi(c.key) + ' AS VARCHAR) AS v, count(*) AS n FROM t WHERE ' + qi(c.key) +
+        ' IS NOT NULL GROUP BY 1 ORDER BY n DESC, v LIMIT ' + SUGGEST_LIMIT, []
+    );
+    suggestions[c.key] = rows.map((r) => r.v);
+  }
+  return suggestions[c.key];
 }
 
 /* ---------- state <-> URL ---------- */
@@ -836,6 +850,21 @@ function drawEditor() {
     input.setAttribute('aria-label', c.label + ' contains');
     input.value = f;
     body.append(input);
+    if (c.suggest) {
+      // A long list of values works better as a text box with suggestions than as a checkbox list.
+      const list = h('datalist');
+      list.id = 'fdsuggest';
+      input.setAttribute('list', 'fdsuggest');
+      body.append(list);
+      loadSuggestions(c).then((vals) => {
+        if (!list.isConnected) return;
+        for (const v of vals) {
+          const o = h('option');
+          o.value = v;
+          list.append(o);
+        }
+      }).catch(() => {});
+    }
   } else {
     const row = h('div', 'rangerow');
     const type = c.type === 'date' ? 'date' : 'number';
@@ -885,6 +914,11 @@ function applyFilter() {
         el('fderr').hidden = false;
         return;
       }
+    }
+    if (range.min !== '' && range.max !== '' && (c.type === 'date' ? range.min : Number(range.min)) > (c.type === 'date' ? range.max : Number(range.max))) {
+      el('fderr').textContent = 'From is after To.';
+      el('fderr').hidden = false;
+      return;
     }
     view.filters[c.key] = range;
   }
@@ -1474,6 +1508,19 @@ function downloadPivot() {
 
 /* ---------- refresh ---------- */
 
+// The first range filter whose From is after its To, or null. Such a filter can never match, so the page
+// says so and runs no query.
+function reversedRange() {
+  for (const c of config.columns) {
+    const f = view.filters[c.key];
+    if (c.filter !== 'range' || !f || f.min === '' || f.max === '') continue;
+    const lo = c.type === 'date' ? f.min : Number(f.min);
+    const hi = c.type === 'date' ? f.max : Number(f.max);
+    if (lo > hi) return c;
+  }
+  return null;
+}
+
 // A list page is ready when data-loading is 0 (the tests wait for it).
 async function refresh() {
   const id = ++latest;
@@ -1483,6 +1530,22 @@ async function refresh() {
 }
 
 async function refreshBody(id) {
+  const reversed = reversedRange();
+  if (reversed) {
+    const vw0 = activeView();
+    total = 0;
+    if (vw0.table) {
+      renderGrid([]);
+      renderPager();
+    } else if (!vw0.pivot) {
+      buildStats(vw0.stats || []);
+      buildCharts(vw0.charts || []);
+    }
+    const bar = el('matchbar');
+    bar.replaceChildren(h('span', 'warn', reversed.label + ': From is after To. Change one of them.'));
+    showNotices();
+    return;
+  }
   const { sql, params } = buildWhere();
   const count = await runQuery('SELECT count(*) AS n FROM t' + sql, params);
   if (id !== latest) return;
@@ -1799,12 +1862,16 @@ async function exportCsv() {
     return;
   }
   const rows = await runQuery('SELECT ' + selectList() + ' FROM t' + sql + ' ORDER BY ' + orderBody(), params);
-  const lines = [config.columns.map((c) => csvField(c.key)).join(',')];
-  for (const r of rows) lines.push(config.columns.map((c) => csvField(r[c.key])).join(','));
+  // Raw keeps the stored codes and column keys. Labels writes column names and the plain words the page
+  // shows for Yes/No and coded columns; numbers and dates are left as they are.
+  const labels = el('csvmode').value === 'labels';
+  const cell = (c, v) => (labels && v !== null && v !== undefined && v !== '' ? (c.type === 'bool' ? (v ? 'Yes' : 'No') : c.format === 'code' ? humanCode(v, c) : v) : v);
+  const lines = [config.columns.map((c) => csvField(labels ? c.label : c.key)).join(',')];
+  for (const r of rows) lines.push(config.columns.map((c) => csvField(cell(c, r[c.key]))).join(','));
   const url = URL.createObjectURL(new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/csv' }));
   const a = document.createElement('a');
   a.href = url;
-  a.download = config.id + '-filtered.csv';
+  a.download = config.id + (labels ? '-filtered-labels.csv' : '-filtered.csv');
   a.click();
   URL.revokeObjectURL(url);
   setStatus('Downloaded ' + n.toLocaleString() + ' rows. Open as text to keep leading zeros.', '');

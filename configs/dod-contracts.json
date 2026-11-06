@@ -61,7 +61,8 @@
    "key": "agency",
    "label": "Agency header",
    "type": "text",
-   "filter": "select"
+   "filter": "text",
+   "suggest": true
   },
   {
    "key": "company",

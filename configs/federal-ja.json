@@ -132,8 +132,9 @@
    "key": "naics_code",
    "label": "NAICS",
    "type": "text",
-   "filter": "select",
-   "show": false
+   "filter": "text",
+   "show": false,
+   "suggest": true
   },
   {
    "key": "sam_justification_authority",
@@ -210,9 +211,10 @@
    "label": "Authority (plain)",
    "type": "text",
    "show": false,
-   "filter": "select",
+   "filter": "text",
    "help": "The legal authority cited for not competing, as a plain category. Experimental: model-read from the documents.",
-   "join": "x"
+   "join": "x",
+   "suggest": true
   },
   {
    "key": "authority_cited",

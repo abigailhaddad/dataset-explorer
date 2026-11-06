@@ -351,3 +351,6 @@ a.recordlink { font-weight: 600; }
   .toolbar-row button, #theme, .pager button, .dactions button { min-height: 2.5rem; }
   summary { padding-top: 0.45rem; padding-bottom: 0.45rem; }
 }
+
+#matchbar .warn { color: var(--warn-ink, #8a4b00); font-weight: 600; }
+

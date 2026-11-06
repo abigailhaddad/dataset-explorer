@@ -69,7 +69,7 @@ A blank in a pick-list is `__blank__`. Bad values in a link are ignored with a n
 
 Blank labels are left out of the bars and counted in a note under the chart. Every chart has a "Table" with its numbers.
 
-**Columns**: `key`, `label`, `type` (`text`, `number`, `date`, `bool`), and optionally `filter` (`select`, `text`, `range`), `show: false`, `format: "currency"`, `link`, `help` (hover text), `expr` (a SQL expression for a derived column; in a config with `joins`, write main-table columns as `m.<col>`), `join`, `from`.
+**Columns**: `key`, `label`, `type` (`text`, `number`, `date`, `bool`), and optionally `filter` (`select`, `text`, `range`; use `text` with `suggest: true` for a column with more than about 50 values, which gives a contains box with a suggestion list instead of a checkbox list), `show: false`, `format: "currency"`, `link`, `help` (hover text), `expr` (a SQL expression for a derived column; in a config with `joins`, write main-table columns as `m.<col>`), `join`, `from`.
 
 **Record** (`record`):
 

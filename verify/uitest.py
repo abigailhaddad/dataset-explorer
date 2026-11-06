@@ -10,8 +10,14 @@ with sync_playwright() as p:
     # popover filter
     pg.click('#addfilter'); print('popover open:', not pg.eval_on_selector('#filterpop','e=>e.hidden'), '| aria-expanded', pg.get_attribute('#addfilter','aria-expanded'), '| focus in popover:', pg.evaluate("document.getElementById('filterpop').contains(document.activeElement)"))
     pg.press('#fdcol','Escape'); print('Escape closes:', pg.eval_on_selector('#filterpop','e=>e.hidden'), '| focus back on button:', pg.evaluate("document.activeElement.id"))
-    pg.click('#addfilter'); pg.select_option('#fdcol','agency'); pg.fill('#fdnarrow','Veterans')
-    pg.check('#fdbody .opts label:not([hidden]) input'); pg.click('#fdapply'); ready(pg); pg.wait_for_timeout(500)
+    # A short pick-list gets no narrow box; a list of 12 does, and it filters the list
+    pg.click('#addfilter'); pg.select_option('#fdcol','basis_sex'); print('narrow box on a 2-option list:', pg.locator('#fdnarrow').count())
+    pg.select_option('#fdcol','posted_month'); n_all=pg.locator('#fdbody .opts label').count(); pg.fill('#fdnarrow','2026-1'); n_vis=pg.locator('#fdbody .opts label:not([hidden])').count()
+    print('narrow box on the 12-option list:', pg.locator('#fdnarrow').count(), '| options', n_all, '-> shown after typing 2026-1:', n_vis)
+    # A long list (64 agencies) is a text box with suggestions, not a checkbox list
+    pg.select_option('#fdcol','agency'); pg.wait_for_timeout(1500)
+    print('agency: text box', pg.locator('#fdtext').count(), '| checkbox list', pg.locator('#fdbody .opts').count(), '| suggestions', pg.locator('#fdsuggest option').count())
+    pg.fill('#fdtext','Veterans'); pg.click('#fdapply'); ready(pg); pg.wait_for_timeout(500)
     print('after apply: chips', pg.eval_on_selector_all('.filter-chip','e=>e.map(x=>x.textContent)'), '| match', pg.inner_text('#matchbar'), '| url', pg.url.split('?')[1])
     # click outside closes
     pg.click('#addfilter'); pg.click('h1'); print('click outside closes:', pg.eval_on_selector('#filterpop','e=>e.hidden'))

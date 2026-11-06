@@ -61,7 +61,8 @@
    "key": "agency",
    "label": "Agency",
    "type": "text",
-   "filter": "select"
+   "filter": "text",
+   "suggest": true
   },
   {
    "key": "appealing_party",
@@ -118,7 +119,9 @@
    "key": "aj_found_discrimination",
    "label": "Administrative judge found discrimination",
    "format": "code",
-   "valueLabels": { "no_aj": "No judge's decision" },
+   "valueLabels": {
+    "no_aj": "No judge's decision"
+   },
    "type": "text",
    "filter": "select",
    "show": false
@@ -127,7 +130,9 @@
    "key": "agency_action_on_aj",
    "label": "Agency action on the judge's decision",
    "format": "code",
-   "valueLabels": { "no_aj_decision": "No judge's decision" },
+   "valueLabels": {
+    "no_aj_decision": "No judge's decision"
+   },
    "type": "text",
    "show": false
   },

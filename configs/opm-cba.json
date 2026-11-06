@@ -65,7 +65,8 @@
    "key": "laborUnionName",
    "label": "Union",
    "type": "text",
-   "filter": "select"
+   "filter": "text",
+   "suggest": true
   },
   {
    "key": "local",
