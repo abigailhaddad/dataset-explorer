@@ -14,8 +14,8 @@ for suf,w in [('',''),('+filter'," where n.agency='VETERANS AFFAIRS, DEPARTMENT 
     sc=chart(a,'Authority by agency'); tc=sc['head'].index('Total')
     T.chk('Authority by agency top total (authority read only)'+suf,(sc['rows'][0][0],n(sc['rows'][0][tc])), c.execute(f"select n.agency,count(*) from {J}{w}{' and' if w else ' where'} x.authority_plain is not null group by 1 order by 2 desc,1 limit 1").fetchone())
     v=out['value'+suf]; vs=dict(v['stats'])
-    r=c.execute(f"select count(x.estimated_value_usd), count(*) filter(where x.value_redacted), sum(x.estimated_value_usd) from {J}{w}").fetchone()
-    T.chk('Stated'+suf,n(vs['Stated']),r[0]); T.chk('Redacted'+suf,n(vs['Redacted']),r[1]); T.chk('Stated total'+suf,n(vs['Stated total']),round(r[2]) if r[2] else None)
+    r=c.execute(f"select count(x.estimated_value_usd), count(*) filter(where x.value_redacted), median(x.estimated_value_usd) from {J}{w}").fetchone()
+    T.chk('Stated'+suf,n(vs['Stated']),r[0]); T.chk('Redacted'+suf,n(vs['Redacted']),r[1]); T.chk('Median stated'+suf,n(vs['Median stated']),round(r[2]) if r[2] else None)
     items=rows_dict(chart(v,'Value found'))
     r2=c.execute(f"select count(*) filter(where x.status='extracted' and x.estimated_value_usd is null and not coalesce(x.value_redacted,false)) from {J}{w}").fetchone()[0]
     T.chk('Value found: neither'+suf,items['Read, neither'],r2)
@@ -29,8 +29,8 @@ for suf,w in [('',''),('+filter'," where n.agency='VETERANS AFFAIRS, DEPARTMENT 
     ex=c.execute(f"select x.vendor,count(*) from {J}{w} group by 1 having x.vendor is not null order by 2 desc,1 limit 15").fetchall()
     T.chk('Top vendors first 3'+suf,list(tv.items())[:3],ex[:3])
     m=out['matched'+suf]; ms=dict(m['stats'])
-    r=c.execute(f"select count(*) filter(where n.usaspending_matched), round(100.0*count(*) filter(where n.usaspending_matched)/count(*),1), sum(n.usaspending_total_obligated) from {J}{w}").fetchone()
-    T.chk('Matched'+suf,n(ms['Matched']),r[0]); T.chk('Matched share'+suf,ms['Share'],f"{r[1]:g}%"); T.chk('Obligated'+suf,n(ms['Obligated']),round(r[2]))
+    r=c.execute(f"select count(*) filter(where n.usaspending_matched), round(100.0*count(*) filter(where n.usaspending_matched)/count(*),1), count(distinct n.usaspending_award_key) from {J}{w}").fetchone()
+    T.chk('Matched'+suf,n(ms['Matched']),r[0]); T.chk('Matched share'+suf,ms['Share'],f"{r[1]:g}%"); T.chk('Distinct awards'+suf,n(ms['Distinct awards']),r[2])
     mc=chart(m,'Matched by month'); hi=mc['head'].index('Matched'); 
     mm={row[0]:n(row[hi]) for row in mc['rows']}
     k=sorted(mm)[len(mm)//2]

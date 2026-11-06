@@ -164,6 +164,13 @@
    "format": "currency"
   },
   {
+   "key": "usaspending_award_key",
+   "label": "USAspending award key",
+   "type": "text",
+   "show": false,
+   "help": "Several notices can share one award."
+  },
+  {
    "key": "usaspending_recipient_name",
    "label": "Recipient (USAspending)",
    "type": "text",
@@ -388,10 +395,10 @@
      "expr": "count(*) FILTER (WHERE value_redacted)"
     },
     {
-     "label": "Stated total",
-     "expr": "sum(estimated_value_usd)",
+     "label": "Median stated",
+     "expr": "median(estimated_value_usd)",
      "format": "currency",
-     "hint": "Sum of stated values. Excludes redacted and blank."
+     "hint": "Median of model-read stated values. They mix ceilings, totals with options and modification amounts, so a sum would mislead."
     }
    ],
    "charts": [
@@ -417,6 +424,7 @@
     {
      "type": "top",
      "title": "Stated value by agency",
+     "note": "Sums model-read values. A few very large ceilings dominate.",
      "label": "agency",
      "value": "sum(estimated_value_usd)",
      "format": "currency",
@@ -452,6 +460,7 @@
     {
      "type": "top",
      "title": "Stated value by vendor",
+     "note": "Sums model-read values. A few very large ceilings dominate.",
      "label": "vendor",
      "value": "sum(estimated_value_usd)",
      "format": "currency",
@@ -474,10 +483,9 @@
      "expr": "round(100.0 * count(*) FILTER (WHERE usaspending_matched) / nullif(count(*), 0), 1) || '%'"
     },
     {
-     "label": "Obligated",
-     "expr": "sum(usaspending_total_obligated)",
-     "format": "currency",
-     "hint": "Total obligated on matched awards."
+     "label": "Distinct awards",
+     "expr": "count(DISTINCT usaspending_award_key)",
+     "hint": "Several notices can point to the same award, so this is lower than Matched."
     }
    ],
    "charts": [
@@ -523,15 +531,14 @@
   "measures": [
    {
     "id": "stated",
-    "label": "Stated value (sum)",
+    "label": "Stated value (sum, mixed bases)",
     "expr": "sum(estimated_value_usd)",
     "format": "currency"
    },
    {
-    "id": "obligated",
-    "label": "Obligated on matched awards (sum)",
-    "expr": "sum(usaspending_total_obligated)",
-    "format": "currency"
+    "id": "awards",
+    "label": "Distinct matched awards",
+    "expr": "count(DISTINCT usaspending_award_key)"
    }
   ]
  },

@@ -50,7 +50,7 @@ compare('cba+filter (pages sum)',pv['cba+f']['pivot'],cells(f"select laborUnionN
 B=f"{H}abigailhaddad/federal-ja-documents/resolve/main/"
 J=f"read_parquet('{B}data/notices.parquet') n left join read_parquet('{B}analysis/extractions.parquet') x on n.notice_id=x.notice_id"
 pv=json.load(open('verify/pv_ja.json'))
-compare('ja (obligated by agency x matched)',pv['ja']['pivot'],cells(f"select n.agency, cast(n.usaspending_matched as varchar), sum(n.usaspending_total_obligated) from {J} group by 1,2"),tol=1)
+compare('ja (distinct matched awards by agency x matched)',pv['ja']['pivot'],cells(f"select n.agency, cast(n.usaspending_matched as varchar), count(distinct n.usaspending_award_key) from {J} group by 1,2"),tol=0)
 compare('ja+filter (stated by authority)',pv['ja+f']['pivot'],cells(f"select x.authority_plain, sum(x.estimated_value_usd) from {J} where n.agency='VETERANS AFFAIRS, DEPARTMENT OF' group by 1"),tol=1)
 # dod
 base=f"{H}abigailhaddad/dod-daily-contracts/resolve/main/data/"

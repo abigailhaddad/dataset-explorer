@@ -8,7 +8,7 @@ jobs=[
  ('listing+f', 'd=eeoc-listing&v=pivot&pr=posted_year&pc=ext&f.ext=.pdf&f.ext=.txt'),
  ('cba', 'd=opm-cba&v=pivot&pr=agencyName&pc=flag_group'),
  ('cba+f', 'd=opm-cba&v=pivot&pr=laborUnionName&pm=pages&f.flag_group=Inferred'),
- ('ja', 'd=federal-ja&v=pivot&pr=agency&pc=usaspending_matched&pm=obligated'),
+ ('ja', 'd=federal-ja&v=pivot&pr=agency&pc=usaspending_matched&pm=awards'),
  ('ja+f', 'd=federal-ja&v=pivot&pr=authority_plain&pm=stated&f.agency=VETERANS%20AFFAIRS%2C%20DEPARTMENT%20OF'),
  ('dod', 'd=dod-contracts&v=pivot&pr=year&pc=agency'),
  ('dod+f', 'd=dod-contracts&v=pivot&pr=state&f.agency=NAVY'),
