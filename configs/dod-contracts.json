@@ -358,6 +358,7 @@
      "link"
     ],
     "title": "{company}",
+    "titleFallback": "(company not read)",
     "sub": "{place}",
     "limit": 8
    },

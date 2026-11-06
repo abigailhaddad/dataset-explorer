@@ -1599,7 +1599,7 @@ async function showRelated(card, rel, row) {
   const list = h('ul', 'rel-list');
   for (const r of rows) {
     const li = document.createElement('li');
-    const a = h('a', '', fill(rel.title, r) || String(r[config.key]));
+    const a = h('a', '', fill(rel.title, r) || (rel.titleFallback ? fill(rel.titleFallback, r) : '') || String(r[config.key]));
     a.href = recordUrl(r[config.key]);
     a.dataset.soft = '1';
     li.append(a);
