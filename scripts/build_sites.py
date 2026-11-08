@@ -45,6 +45,9 @@ SITES = [
     {'slug': 'dc-procurement', 'title': 'DC procurement', 'default': 'dc-contracts',
      'datasets': ['dc-contracts', 'dc-purchase-orders', 'dc-payments', 'dc-solicitations'],
      'hf': 'abigailhaddad/dc-procurement', 'repo': 'abigailhaddad/dc-software-procurement', 'favicon': 'DC'},
+    {'slug': 'mspb-decisions', 'title': 'MSPB decisions', 'default': 'mspb',
+     'datasets': ['mspb'], 'hf': 'abigailhaddad/mspb-decisions',
+     'repo': 'abigailhaddad/mspb-decisions', 'favicon': 'MS'},
 ]
 
 

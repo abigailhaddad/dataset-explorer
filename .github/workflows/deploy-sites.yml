@@ -65,6 +65,7 @@ jobs:
           - usajobs-questionnaires
           - federal-ja-documents
           - dc-procurement
+          - mspb-decisions
     env:
       HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
     steps:

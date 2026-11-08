@@ -14,7 +14,7 @@
  "caveats": [
   "The manifests say nothing about who won. Read the PDF.",
   "Dates are the decision's issue date, not when MSPB posted it.",
-  "Refreshed by hand for now. The snapshot date is on the dataset card."
+  "Refreshed daily. New decisions appear after MSPB adds them to its manifests."
  ],
  "links": [
   {
@@ -22,12 +22,12 @@
    "href": "https://huggingface.co/datasets/abigailhaddad/mspb-decisions"
   },
   {
-   "label": "MSPB decisions",
-   "href": "https://www.mspb.gov/decisions/"
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/mspb-decisions"
   },
   {
-   "label": "Decision PDF",
-   "href": "{url}"
+   "label": "MSPB decisions",
+   "href": "https://www.mspb.gov/decisions/"
   }
  ],
  "searchColumns": [
@@ -138,6 +138,132 @@
    "label": "Manifest",
    "type": "text",
    "show": false
+  },
+  {
+   "key": "decision_number",
+   "label": "Decision number",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "docnumber",
+   "label": "MSPB document number",
+   "type": "text",
+   "show": false
   }
- ]
+ ],
+ "record": {
+  "key": "id",
+  "title": "{appellant}",
+  "subtitle": "{agency} \u00b7 {date}",
+  "sections": [
+   {
+    "title": "Decision",
+    "columns": [
+     "date",
+     "type",
+     "order_kind",
+     "doc_title",
+     "citation",
+     "decision_number"
+    ]
+   },
+   {
+    "title": "Case",
+    "columns": [
+     "docket",
+     "region",
+     "case_kind",
+     "case_code",
+     "agency",
+     "appellant"
+    ]
+   },
+   {
+    "title": "Source",
+    "columns": [
+     "file",
+     "docnumber",
+     "has_text",
+     "manifest",
+     "url"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "Decision PDF on MSPB's site",
+    "href": "{url}"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same docket",
+    "cols": [
+     "docket"
+    ],
+    "title": "{doc_title}",
+    "sub": "{date} \u00b7 {type}",
+    "limit": 8
+   }
+  ]
+ },
+ "views": [
+  {
+   "id": "table",
+   "label": "Decisions",
+   "subtitle": "Every decision file in MSPB's manifests.",
+   "stats": [
+    {
+     "label": "Decisions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Precedential",
+     "expr": "count(*) FILTER (WHERE type = 'precedential')"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Newest",
+     "expr": "CAST(max(date) AS VARCHAR)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Decisions by year",
+     "label": "strftime(date, '%Y')",
+     "unit": "decisions"
+    },
+    {
+     "type": "top",
+     "title": "Top agencies",
+     "label": "agency",
+     "unit": "decisions",
+     "limit": 12
+    },
+    {
+     "type": "top",
+     "title": "Case kind",
+     "label": "case_kind",
+     "unit": "decisions",
+     "limit": 12
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "columns": [
+   "type",
+   "agency",
+   "region",
+   "case_kind",
+   "order_kind"
+  ],
+  "default": "agency"
+ }
 }
