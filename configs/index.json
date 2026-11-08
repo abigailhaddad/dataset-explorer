@@ -113,5 +113,13 @@
   "aliases": [
    "dc-solicitation"
   ]
+ },
+ {
+  "id": "mspb",
+  "title": "MSPB decisions",
+  "blurb": "Every decision file listed in MSPB's manifests, 1979 to now.",
+  "aliases": [
+   "mspb-decisions"
+  ]
  }
 ]

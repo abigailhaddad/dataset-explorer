@@ -1,0 +1,143 @@
+{
+ "id": "mspb",
+ "title": "MSPB decisions",
+ "blurb": "Every decision file listed in MSPB's manifests, 1979 to now.",
+ "hfDataset": "abigailhaddad/mspb-decisions",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/mspb-decisions/resolve/main/decisions.parquet"
+  ]
+ },
+ "key": "id",
+ "covers": "One row per decision file in the manifests MSPB publishes. Metadata only: no outcome, no posted date. Unofficial copy; snapshot of 2026-11-08.",
+ "caveats": [
+  "The manifests say nothing about who won. Read the PDF.",
+  "Dates are the decision's issue date, not when MSPB posted it.",
+  "Refreshed by hand for now. The snapshot date is on the dataset card."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/mspb-decisions"
+  },
+  {
+   "label": "MSPB decisions",
+   "href": "https://www.mspb.gov/decisions/"
+  },
+  {
+   "label": "Decision PDF",
+   "href": "{url}"
+  }
+ ],
+ "searchColumns": [
+  "appellant",
+  "agency",
+  "docket",
+  "file"
+ ],
+ "defaultSort": {
+  "col": "date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "id",
+   "label": "Id",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "date",
+   "label": "Issued",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "type",
+   "label": "Type",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "appellant",
+   "label": "Appellant",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "docket",
+   "label": "Docket",
+   "type": "text"
+  },
+  {
+   "key": "region",
+   "label": "Region",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "case_kind",
+   "label": "Case kind",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "case_code",
+   "label": "Case code",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "order_kind",
+   "label": "Order kind",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "doc_title",
+   "label": "Title",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "citation",
+   "label": "Citation",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "has_text",
+   "label": "Manifest had text",
+   "type": "bool",
+   "show": false
+  },
+  {
+   "key": "url",
+   "label": "PDF",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "file",
+   "label": "File",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "manifest",
+   "label": "Manifest",
+   "type": "text",
+   "show": false
+  }
+ ]
+}
