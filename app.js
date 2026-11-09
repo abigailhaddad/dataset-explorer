@@ -792,7 +792,8 @@ function renderChips() {
 }
 
 function syncControls() {
-  el('q').value = view.q;
+  // Typing a space then pausing must not strip the space from the box.
+  if (el('q').value.trim() !== view.q) el('q').value = view.q;
   renderChips();
   for (const th of el('grid').tHead.querySelectorAll('th')) {
     th.removeAttribute('aria-sort');
