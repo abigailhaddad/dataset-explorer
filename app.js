@@ -1558,6 +1558,11 @@ async function refreshBody(id) {
     } else if (!vw0.pivot) {
       buildStats(vw0.stats || []);
       buildCharts(vw0.charts || []);
+    } else {
+      // Clear the last pivot so neither the table nor its CSV shows the old filter's numbers.
+      el('pvresult').replaceChildren();
+      el('pvnote').textContent = '';
+      pivotShown = null;
     }
     const bar = el('matchbar');
     bar.replaceChildren(h('span', 'warn', reversed.label + ': From is after To. Change one of them.'));
