@@ -13,7 +13,7 @@
  "covers": "One row per meeting on reginfo.gov, 2025-01-20 to 2026-11-08, with handouts and attendees on Hugging Face. Unofficial copy; read the evening of 2026-11-08.",
  "caveats": [
   "Meetings can be rescheduled and handouts added after this was read.",
-  "Attendee and handout counts are what the meeting page lists. Some meetings list no attendees.",
+  "Attendee and handout counts are blank for meetings not held yet. For held meetings, 0 handouts means the page lists none.",
   "A meeting that reginfo's own search never returns can't be caught by these checks."
  ],
  "links": [
@@ -84,7 +84,24 @@
    "key": "meeting_type",
    "label": "Status",
    "type": "text",
-   "filter": "select"
+   "filter": "select",
+   "help": "Completed = held. Scheduled = not held yet (no attendees or handouts yet). No Show = scheduled but nobody came."
+  },
+  {
+   "key": "attendees",
+   "label": "Attendees",
+   "type": "number",
+   "filter": "range",
+   "expr": "CASE WHEN meeting_type = 'Completed' THEN TRY_CAST(n_attendees AS DOUBLE) END",
+   "help": "Blank when the meeting has not been held (Scheduled) or nobody came (No Show)."
+  },
+  {
+   "key": "handouts",
+   "label": "Handouts",
+   "type": "number",
+   "filter": "range",
+   "expr": "CASE WHEN meeting_type = 'Completed' THEN TRY_CAST(n_documents AS DOUBLE) END",
+   "help": "Blank when the meeting has not been held. Zero means held, with no handout on the page."
   },
   {
    "key": "requestor",
@@ -107,15 +124,17 @@
   },
   {
    "key": "n_attendees",
-   "label": "Attendees",
+   "label": "Attendees (raw)",
    "type": "number",
-   "filter": "range"
+   "filter": "range",
+   "show": false
   },
   {
    "key": "n_documents",
-   "label": "Handouts",
+   "label": "Handouts (raw)",
    "type": "number",
-   "filter": "range"
+   "filter": "range",
+   "show": false
   },
   {
    "key": "meeting_datetime",
@@ -147,16 +166,21 @@
      "expr": "count(*)"
     },
     {
-     "label": "Agencies",
-     "expr": "count(DISTINCT agency)"
+     "label": "Held",
+     "expr": "count(*) FILTER (WHERE meeting_type = 'Completed')"
     },
     {
-     "label": "Requestors",
-     "expr": "count(DISTINCT requestor)"
+     "label": "Not held yet",
+     "expr": "count(*) FILTER (WHERE meeting_type = 'Scheduled')",
+     "hint": "Scheduled on reginfo.gov but not held when this was read."
+    },
+    {
+     "label": "No show",
+     "expr": "count(*) FILTER (WHERE meeting_type = 'No Show')"
     },
     {
      "label": "Handouts",
-     "expr": "sum(n_documents)"
+     "expr": "sum(TRY_CAST(n_documents AS DOUBLE))"
     }
    ],
    "charts": [
@@ -165,6 +189,13 @@
      "title": "Meetings by year",
      "label": "strftime(date, '%Y')",
      "unit": "meetings"
+    },
+    {
+     "type": "top",
+     "title": "Status",
+     "label": "meeting_type",
+     "unit": "meetings",
+     "limit": 5
     },
     {
      "type": "top",
@@ -203,9 +234,9 @@
     "columns": [
      "meeting_datetime",
      "meeting_type",
-     "stage",
-     "n_attendees",
-     "n_documents"
+     "attendees",
+     "handouts",
+     "stage"
     ]
    },
    {
