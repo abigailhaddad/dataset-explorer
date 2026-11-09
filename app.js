@@ -1159,7 +1159,7 @@ function itemsSql(spec, whereSql) {
 // Fill in periods with no rows so a gap in the data shows as a gap in the chart.
 function fillPeriods(kind, title, labelsIn) {
   const year = kind === 'year';
-  const pattern = year ? /^\d{4}$/ : /^\d{4}-\d{2}$/;
+  const pattern = year ? /^\d{4}$/ : /^\d{4}-(0[1-9]|1[0-2])$/;
   for (const l of labelsIn) {
     if (!pattern.test(l)) throw new Error('Chart "' + title + '": label "' + l + '" is not ' + (year ? 'YYYY' : 'YYYY-MM') + '.');
   }
