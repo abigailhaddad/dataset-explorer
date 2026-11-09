@@ -1,0 +1,247 @@
+{
+ "id": "oira",
+ "title": "OIRA EO 12866 meetings",
+ "blurb": "Meetings OIRA held on rules under review, with who asked and who attended.",
+ "hfDataset": "abigailhaddad/oira-eo12866-meetings",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/oira-eo12866-meetings/resolve/main/data/meetings.parquet"
+  ]
+ },
+ "key": "meeting_id",
+ "covers": "One row per meeting on reginfo.gov, 2025-01-20 to 2026-11-08, with handouts and attendees on Hugging Face. Unofficial copy; read the evening of 2026-11-08.",
+ "caveats": [
+  "Meetings can be rescheduled and handouts added after this was read.",
+  "Attendee and handout counts are what the meeting page lists. Some meetings list no attendees.",
+  "A meeting that reginfo's own search never returns can't be caught by these checks."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/oira-eo12866-meetings"
+  },
+  {
+   "label": "Code and checks",
+   "href": "https://github.com/abigailhaddad/oira-meetings"
+  },
+  {
+   "label": "reginfo.gov EO 12866 meetings",
+   "href": "https://www.reginfo.gov/public/do/eoMeetingSearch"
+  }
+ ],
+ "searchColumns": [
+  "rule_title",
+  "agency",
+  "requestor",
+  "requestor_name",
+  "rin",
+  "requestor_client"
+ ],
+ "defaultSort": {
+  "col": "date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "meeting_id",
+   "label": "Meeting id",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "date",
+   "label": "Date",
+   "type": "date",
+   "filter": "range",
+   "expr": "TRY_CAST(strptime(meeting_datetime, '%m/%d/%Y %I:%M %p') AS DATE)"
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "rin",
+   "label": "RIN",
+   "type": "text"
+  },
+  {
+   "key": "rule_title",
+   "label": "Rule",
+   "type": "text"
+  },
+  {
+   "key": "stage",
+   "label": "Stage",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "meeting_type",
+   "label": "Status",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "requestor",
+   "label": "Requestor",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "requestor_name",
+   "label": "Requestor name",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "requestor_client",
+   "label": "Requestor's client",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "n_attendees",
+   "label": "Attendees",
+   "type": "number",
+   "filter": "range"
+  },
+  {
+   "key": "n_documents",
+   "label": "Handouts",
+   "type": "number",
+   "filter": "range"
+  },
+  {
+   "key": "meeting_datetime",
+   "label": "Meeting date and time",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "month",
+   "label": "Month",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "url",
+   "label": "reginfo page",
+   "type": "text",
+   "show": false
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
+   "label": "Meetings",
+   "subtitle": "Every EO 12866 meeting in the archive.",
+   "stats": [
+    {
+     "label": "Meetings",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Requestors",
+     "expr": "count(DISTINCT requestor)"
+    },
+    {
+     "label": "Handouts",
+     "expr": "sum(n_documents)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Meetings by year",
+     "label": "strftime(date, '%Y')",
+     "unit": "meetings"
+    },
+    {
+     "type": "top",
+     "title": "Agencies",
+     "label": "agency",
+     "unit": "meetings",
+     "limit": 12
+    },
+    {
+     "type": "top",
+     "title": "Requestors",
+     "label": "requestor",
+     "unit": "meetings",
+     "limit": 12
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "columns": [
+   "agency",
+   "stage",
+   "meeting_type",
+   "requestor",
+   "month"
+  ],
+  "default": "agency"
+ },
+ "record": {
+  "key": "meeting_id",
+  "title": "{rule_title}",
+  "subtitle": "{agency} \u00b7 {meeting_datetime}",
+  "sections": [
+   {
+    "title": "Meeting",
+    "columns": [
+     "meeting_datetime",
+     "meeting_type",
+     "stage",
+     "n_attendees",
+     "n_documents"
+    ]
+   },
+   {
+    "title": "Rule",
+    "columns": [
+     "agency",
+     "rin",
+     "rule_title"
+    ]
+   },
+   {
+    "title": "Requested by",
+    "columns": [
+     "requestor",
+     "requestor_name",
+     "requestor_client"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "Meeting page on reginfo.gov",
+    "href": "{url}"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same rule",
+    "cols": [
+     "rin"
+    ],
+    "title": "{requestor}",
+    "sub": "{meeting_datetime}",
+    "limit": 8
+   }
+  ]
+ }
+}

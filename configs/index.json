@@ -81,7 +81,7 @@
  {
   "id": "dc-contracts",
   "title": "DC contracts",
-  "blurb": "Contract periods from DC’s procurement portal.",
+  "blurb": "Contract periods from DC\u2019s procurement portal.",
   "aliases": [
    "dc",
    "dc-procurement",
@@ -91,7 +91,7 @@
  {
   "id": "dc-purchase-orders",
   "title": "DC purchase orders",
-  "blurb": "Purchase orders from DC’s procurement portal.",
+  "blurb": "Purchase orders from DC\u2019s procurement portal.",
   "aliases": [
    "dc-po",
    "dc-pos",
@@ -101,7 +101,7 @@
  {
   "id": "dc-payments",
   "title": "DC payments",
-  "blurb": "Payment lines from DC’s procurement portal.",
+  "blurb": "Payment lines from DC\u2019s procurement portal.",
   "aliases": [
    "dc-payment"
   ]
@@ -109,7 +109,7 @@
  {
   "id": "dc-solicitations",
   "title": "DC solicitations",
-  "blurb": "Open and archived solicitations from DC’s procurement portal.",
+  "blurb": "Open and archived solicitations from DC\u2019s procurement portal.",
   "aliases": [
    "dc-solicitation"
   ]
@@ -120,6 +120,15 @@
   "blurb": "Every decision file listed in MSPB's manifests, 1979 to now.",
   "aliases": [
    "mspb-decisions"
+  ]
+ },
+ {
+  "id": "oira",
+  "title": "OIRA EO 12866 meetings",
+  "blurb": "Meetings OIRA held on rules under review, with who asked and who attended.",
+  "aliases": [
+   "oira-meetings",
+   "eo12866"
   ]
  }
 ]

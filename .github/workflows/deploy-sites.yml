@@ -66,6 +66,7 @@ jobs:
           - federal-ja-documents
           - dc-procurement
           - mspb-decisions
+          - oira-meetings
     env:
       HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
     steps:

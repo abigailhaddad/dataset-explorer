@@ -48,6 +48,9 @@ SITES = [
     {'slug': 'mspb-decisions', 'title': 'MSPB decisions', 'default': 'mspb',
      'datasets': ['mspb'], 'hf': 'abigailhaddad/mspb-decisions',
      'repo': 'abigailhaddad/mspb-decisions', 'favicon': 'MS'},
+    {'slug': 'oira-meetings', 'title': 'OIRA EO 12866 meetings', 'default': 'oira',
+     'datasets': ['oira'], 'hf': 'abigailhaddad/oira-eo12866-meetings',
+     'repo': 'abigailhaddad/oira-meetings', 'favicon': 'OI'},
 ]
 
 
