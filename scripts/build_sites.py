@@ -116,6 +116,9 @@ def build(site):
 
 if __name__ == '__main__':
     want = sys.argv[1:]
+    unknown = [w for w in want if w not in [s['slug'] for s in SITES]]
+    if unknown:
+        sys.exit('Unknown site slug(s): ' + ', '.join(unknown))
     for s in SITES:
         if not want or s['slug'] in want:
             build(s)
