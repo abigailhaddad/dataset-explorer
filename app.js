@@ -416,7 +416,10 @@ function emptyFilters() {
 function validBound(c, v) {
   if (v === '') return true;
   if (c.type === 'number') return Number.isFinite(Number(v));
-  return /^\d{4}-\d{2}-\d{2}$/.test(v);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  // 2024-02-31 matches the pattern but is not a day; DuckDB's CAST(? AS DATE) would throw.
+  const d = new Date(v + 'T00:00:00Z');
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
 }
 
 function pivotDefaults() {
