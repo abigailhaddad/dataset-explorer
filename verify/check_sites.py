@@ -22,7 +22,7 @@ SB = f"{H}abigailhaddad/sf133-budget-execution/resolve/main/data/sf133_accounts.
 QB = f"{H}abigailhaddad/usajobs-questionnaires/resolve/main/data/questionnaires/part-2025-release.parquet"
 def num(x): return f"{int(x):,}"
 def stats_of(pg):
-    return pg.evaluate("[...document.querySelectorAll('#stats .stat-card')].map(c=>[c.querySelector('h3').textContent, c.querySelector('.stat-value').textContent])")
+    return pg.evaluate("[...document.querySelectorAll('#stats .stat-card')].map(c=>[c.querySelector('.stat-label').textContent, c.querySelector('.stat-value').textContent])")
 def wait_list(pg):
     pg.wait_for_function("document.querySelector('#listpane') && document.querySelector('#listpane').dataset.loading === '0'", timeout=240000)
     pg.wait_for_timeout(500)

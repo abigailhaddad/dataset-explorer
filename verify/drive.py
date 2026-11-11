@@ -20,8 +20,8 @@ def run(jobs, outpath, width=1280, shots=None):
                 res[name]={'error':'timeout','status':pg.inner_text('#status')[:300]}; continue
             pg.wait_for_timeout(300)
             data=pg.evaluate("""() => {
-              const stats=[...document.querySelectorAll('#stats .stat-card')].map(c=>[c.querySelector('h3').textContent, c.querySelector('.stat-value').textContent]);
-              const charts=[...document.querySelectorAll('#charts .chart-card')].map(c=>({title:c.querySelector('h3').textContent, foot:c.querySelector('.chart-foot').textContent,
+              const stats=[...document.querySelectorAll('#stats .stat-card')].map(c=>[c.querySelector('.stat-label').textContent, c.querySelector('.stat-value').textContent]);
+              const charts=[...document.querySelectorAll('#charts .chart-card')].map(c=>({title:c.querySelector('h2').textContent, foot:c.querySelector('.chart-foot').textContent,
                  head:[...c.querySelectorAll('table thead th')].map(x=>x.textContent),
                  rows:[...c.querySelectorAll('table tbody tr')].map(r=>[...r.children].map(x=>x.textContent))}));
               const pv=document.querySelector('#pvresult table');

@@ -1003,7 +1003,7 @@ function buildStats(specs) {
     if (s.hint) card.title = s.hint;
     const v = h('div', 'stat-value', '--');
     v.id = 'stat' + i;
-    card.append(h('h3', '', s.label), v);
+    card.append(h('p', 'stat-label', s.label), v);   // a label on a number, not a heading (skipped-heading, 2026-11-11)
     row.append(card);
   });
 }
@@ -1084,7 +1084,7 @@ function buildCharts(specs) {
     const table = document.createElement('table');
     scroll.append(table);
     details.append(h('summary', '', 'Table'), scroll);
-    card.append(h('h3', '', spec.title), box, foot, details);
+    card.append(h('h2', '', spec.title), box, foot, details);   // h2: the page's sections follow the h1 (was h3)
     host.append(card);
 
     const unit = spec.unit || 'rows';
