@@ -50,6 +50,7 @@ let conn = null;
 let mainRel = ''; // SQL for the main table's files, before the view `t`
 let joinRels = []; // SQL for each joined table
 let sourceUrls = [];
+let mainColumns = []; // column names in the main files
 const colByKey = {};
 
 // Filled lazily the first time a list page is shown.
@@ -349,7 +350,25 @@ async function createView() {
     if (!have.has(c.from || c.key)) missing.push(c.from || c.key);
   }
   if (missing.length) throw new Error('The file has no column named ' + missing.join(', ') + '. Check the config.');
+  mainColumns = [...found];
   await defineT(mainRel);
+}
+
+// The main file's columns the config can reach: plain columns, join keys, and
+// any column name that appears as a word in an expr. Extra matches only cost
+// memory; a missed one would break the view, so the word match is loose.
+function neededColumns() {
+  const words = new Set();
+  for (const c of config.columns) {
+    if (c.join) continue;
+    if (c.expr) {
+      for (const m of c.expr.matchAll(/[A-Za-z_][A-Za-z0-9_]*/g)) words.add(m[0]);
+    } else {
+      words.add(c.from || c.key);
+    }
+  }
+  for (const j of config.joins || []) words.add(j.on);
+  return mainColumns.filter((k) => words.has(k));
 }
 
 // Many small files: read them once into memory instead of re-reading every
@@ -358,7 +377,7 @@ async function createView() {
 async function materializeIfNeeded() {
   if (!config.source.materialize || materialized) return;
   busy('Loading the table…');
-  await conn.query('CREATE OR REPLACE TABLE raw AS SELECT * FROM ' + mainRel);
+  await conn.query('CREATE OR REPLACE TABLE raw AS SELECT ' + neededColumns().map(qi).join(', ') + ' FROM ' + mainRel);
   await defineT('raw');
   materialized = true;
 }
@@ -810,7 +829,8 @@ function buildToolbar() {
   el('q').title = 'Searches: ' + names.join(', ');
   el('addfilter').hidden = filterColumns().length === 0;
   const link = el('fulllink');
-  if (sourceUrls.length === 1) {
+  // source.copy: the file is a trimmed copy, so it is not offered as the full dataset.
+  if (sourceUrls.length === 1 && !config.source.copy) {
     link.href = sourceUrls[0];
     link.textContent = 'Full dataset (' + config.source.format + ') ↓';
   } else if (config.hfDataset) {

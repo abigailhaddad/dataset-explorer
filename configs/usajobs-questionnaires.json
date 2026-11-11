@@ -5,10 +5,11 @@
  "hfDataset": "abigailhaddad/usajobs-questionnaires",
  "source": {
   "format": "parquet",
-  "discover": {
-   "hfDataset": "abigailhaddad/usajobs-questionnaires",
-   "path": "data/questionnaires"
-  }
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/usajobs-questionnaires/resolve/main/explorer/questionnaires.parquet"
+  ],
+  "materialize": true,
+  "copy": true
  },
  "key": "questionnaire_id",
  "covers": "One row per questionnaire page linked from a USAJOBS announcement, with its questions on the record page.",

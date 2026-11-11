@@ -47,7 +47,8 @@ A blank in a pick-list is `__blank__`. Bad values in a link are ignored with a n
 | `source.format` | `parquet` or `csv`. |
 | `source.urls` | One or more `resolve` URLs, read as one table. |
 | `source.discover` | `{ "hfDataset", "path" }`. Lists the files under that folder when the page loads, following the API's paging, instead of fixed `urls`. |
-| `source.materialize` | `true` loads the files into memory once, for list pages. Record pages skip it. |
+| `source.materialize` | `true` loads the files into memory once, for list pages, keeping only the columns the config uses. Record pages skip it. |
+| `source.copy` | `true` when the source file is a trimmed copy made for the explorer. The "Full dataset" link then goes to the Hugging Face dataset instead of the file. |
 | `source.csvOptions` | Extra `read_csv` options. CSVs are read as text, then cast per column. |
 | `joins` | `[{ "id", "on", "urls" }]`: another Parquet file, left-joined to the main table on column `on`. Columns that come from it set `"join": "<id>"` (and `"from"` if the source column has a different name). A joined file must have one row per `on` value. |
 | `key` | A column unique per row. Used for sort ties and record URLs. |
