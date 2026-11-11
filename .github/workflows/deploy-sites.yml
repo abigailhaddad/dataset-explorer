@@ -45,6 +45,8 @@ jobs:
               test -s "$d$f" || { echo "::error::$d$f is missing or empty"; exit 1; }
             done
           done
+      - name: Check the template and the built folders
+        run: python3 scripts/test_build_sites.py
       - uses: actions/upload-artifact@v4
         with:
           name: dist-sites
