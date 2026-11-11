@@ -44,7 +44,12 @@ SITES = [
      'repo': 'abigailhaddad/federal-ja-documents', 'favicon': 'JA'},
     {'slug': 'dc-procurement', 'title': 'DC procurement', 'default': 'dc-contracts',
      'datasets': ['dc-contracts', 'dc-purchase-orders', 'dc-payments', 'dc-solicitations'],
-     'hf': 'abigailhaddad/dc-procurement', 'repo': 'abigailhaddad/dc-software-procurement', 'favicon': 'DC'},
+     'hf': 'abigailhaddad/dc-procurement', 'repo': 'abigailhaddad/dc-software-procurement', 'favicon': 'DC',
+     # Addresses of the earlier multi-page DC site. They keep landing on a real page now that the site has a 404 page.
+     'redirects': {'contracts': '/?d=dc-contracts', 'contract': '/?d=dc-contracts', 'renewals': '/?d=dc-contracts',
+                   'purchase-orders': '/?d=dc-purchase-orders', 'payments': '/?d=dc-payments',
+                   'solicitations': '/?d=dc-solicitations', 'about': '/', 'how-dc-buys': '/',
+                   'shared-vendors': '/', 'gaps': '/', 'technology': '/'}},
     {'slug': 'mspb-decisions', 'title': 'MSPB decisions', 'default': 'mspb',
      'datasets': ['mspb'], 'hf': 'abigailhaddad/mspb-decisions',
      'repo': 'abigailhaddad/mspb-decisions', 'favicon': 'MS'},
@@ -52,6 +57,32 @@ SITES = [
      'datasets': ['oira'], 'hf': 'abigailhaddad/oira-eo12866-meetings',
      'repo': 'abigailhaddad/oira-meetings', 'favicon': 'OI'},
 ]
+
+
+NOT_FOUND = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page not found · {title}</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="{favicon}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="site-container">
+  <header class="site-header">
+    <h1>Page not found</h1>
+    <p class="site-subtitle">There is no page at this address.</p>
+  </header>
+  <p><a href="/">Go to {title}</a></p>
+</div>
+</body>
+</html>
+"""
 
 
 def favicon(text):
@@ -83,9 +114,22 @@ def build(site):
     page = replace_once(page, '<title>Dataset Explorer</title>', '<title>%s</title>' % t)
     page = re.sub(r'<link rel="icon" href="[^"]+">', '<link rel="icon" href="%s">' % favicon(site['favicon']), page, count=1)
     page = replace_once(page, '<h1 id="title">Dataset Explorer</h1>', '<h1 id="title">%s</h1>' % t)
-    page = replace_once(page, 'Public records, read from Hugging Face.', html.escape(default_entry['blurb']))
+    # The blurb appears three times in the template: the meta description, the share description and the subtitle.
+    assert page.count('Public records, read from Hugging Face.') == 3
+    page = page.replace('Public records, read from Hugging Face.', html.escape(default_entry['blurb']))
+    page = replace_once(page, '<meta property="og:title" content="Dataset Explorer">',
+                        '<meta property="og:title" content="%s">' % t)
     page = replace_once(page, '<body>', '<body data-site="1">')
     open(os.path.join(out, 'index.html'), 'w').write(page)
+    # Pages serves index.html with status 200 for any unknown address unless the site has a 404.html.
+    # Every address this app uses is the root plus a query string, so a real 404 page is safe.
+    open(os.path.join(out, '404.html'), 'w').write(NOT_FOUND.replace('{title}', t).replace('{favicon}', favicon(site['favicon'])))
+    # Cloudflare Pages reads _redirects: one "from to status" line per old address, with and without .html.
+    if site.get('redirects'):
+        lines = []
+        for old, new in sorted(site['redirects'].items()):
+            lines += ['/%s %s 302' % (old, new), '/%s.html %s 302' % (old, new)]
+        open(os.path.join(out, '_redirects'), 'w').write('\n'.join(lines) + '\n')
 
     ids = set(site['datasets'])
     for ds in site['datasets']:

@@ -1643,6 +1643,7 @@ async function showList() {
   el('tablesection').hidden = !vw.table;
   el('pivotsection').hidden = !vw.pivot;
   el('viewpane').hidden = !!vw.pivot;
+  el('stats').hidden = !!vw.pivot;
   if (!vw.pivot) {
     buildStats(vw.stats || []);
     buildCharts(vw.charts || []);
@@ -2260,9 +2261,9 @@ function renderNav(index, current) {
     nav.hidden = true; // one table: nothing to switch between
     return;
   }
-  nav.replaceChildren(site ? 'Tables: ' : 'Datasets: ');
-  index.forEach((d, i) => {
-    if (i) nav.append(h('span', 'sep', '·'));
+  // Tabs: the nav's aria-label names the group, so no "Tables:" text or separators.
+  nav.replaceChildren();
+  index.forEach((d) => {
     if (d.id === current) {
       const here = h('span', '', d.title);
       here.setAttribute('aria-current', 'page');
@@ -2293,6 +2294,12 @@ function renderHeader() {
   el('title').textContent = site ? site.title : config.title;
   el('covers').textContent = config.covers;
   for (const text of config.caveats || []) el('caveats').append(h('li', '', text));
+  // The first caveat also shows above the list, outside the collapsed box, so it is read before the rows are.
+  const first = (config.caveats || [])[0];
+  if (first) {
+    el('keynote').textContent = first;
+    el('keynote').hidden = false;
+  }
   for (const l of config.links || []) {
     const a = h('a', '', l.label);
     a.href = l.href;

@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dataset Explorer</title>
+<meta name="description" content="Public records, read from Hugging Face.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Dataset Explorer">
+<meta property="og:description" content="Public records, read from Hugging Face.">
+<meta name="twitter:card" content="summary">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%232d6a4f%27/%3E%3Cpath d=%27M3 5h10M3 8h10M3 11h6%27 stroke=%27white%27 stroke-width=%271.5%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +25,6 @@
     </div>
     <p id="blurb" class="site-subtitle">Public records, read from Hugging Face.</p>
     <nav id="nav" class="site-nav" aria-label="Datasets"></nav>
-    <div id="viewtabs" class="view-tabs" role="tablist" aria-label="Views" hidden></div>
   </header>
 
   <div id="status" role="status" aria-live="polite"></div>
@@ -30,16 +34,16 @@
   </section>
 
   <section id="explorer" hidden>
-    <p id="asof" class="asof"></p>
+    <p class="prov"><span id="covers"></span> <span id="asof" class="asof"></span></p>
     <details id="about">
       <summary>About this data</summary>
-      <p id="covers"></p>
       <ul id="caveats"></ul>
       <p id="links" class="links"></p>
     </details>
 
     <!-- List pages: table, bespoke views, pivot -->
     <div id="listpane" hidden>
+      <p id="keynote" class="keynote" hidden></p>
       <div class="toolbar-wrap">
         <div class="toolbar-row">
           <input id="q" type="search" autocomplete="off" aria-label="Search">
@@ -66,11 +70,12 @@
       </div>
       <div id="chips" class="filters-bar"></div>
 
-      <p id="matchbar" class="summary"></p>
+      <div id="viewtabs" class="view-tabs" role="tablist" aria-label="Views" hidden></div>
 
-      <div id="viewpane">
+      <!-- Totals and the row count in one strip, then the rows, then the charts. -->
+      <div class="sumline">
         <div id="stats" class="stats-row"></div>
-        <div id="charts" class="charts-grid"></div>
+        <p id="matchbar" class="summary"></p>
       </div>
 
       <div id="tablesection" hidden>
@@ -83,6 +88,10 @@
             <select id="pagesize"></select>
           </label>
         </div>
+      </div>
+
+      <div id="viewpane">
+        <div id="charts" class="charts-grid"></div>
       </div>
 
       <div id="pivotsection" hidden>
