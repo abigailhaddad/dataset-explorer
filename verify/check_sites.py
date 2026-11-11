@@ -59,6 +59,15 @@ with sync_playwright() as p:
             tabs = pg.evaluate("[...document.querySelectorAll('#viewtabs [role=tab], #viewtabs a, #viewtabs button')].map(x=>x.textContent)")
             print('   tabs:', tabs)
             T.chk(f'{slug}: no sideways scroll {tag}', pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), True)
+            # Records-first layout (2026-11-11): the first caveat shows above the rows, every caveat is still
+            # under About, the table comes before the charts, and the first row is on the first screen at 1280.
+            cfg = json.load(open(f'dist-sites/{slug}/configs/{ds}.json'))
+            T.chk(f'{slug}: first caveat shows above the rows {tag}', pg.evaluate("(() => { const k=document.getElementById('keynote'); return k.hidden ? null : k.textContent; })()"), cfg['caveats'][0])
+            T.chk(f'{slug}: About lists every caveat {tag}', pg.evaluate("[...document.querySelectorAll('#caveats li')].map(x=>x.textContent)"), cfg['caveats'])
+            T.chk(f'{slug}: covers line shows {tag}', pg.inner_text('#covers'), cfg['covers'])
+            T.chk(f'{slug}: rows come before the charts {tag}', pg.evaluate("document.querySelector('#grid tbody tr').getBoundingClientRect().top < document.getElementById('charts').getBoundingClientRect().top"), True)
+            if width == 1280:
+                T.chk(f'{slug}: first row is on the first screen {tag}', pg.evaluate("document.querySelector('#grid tbody tr').getBoundingClientRect().top < window.innerHeight"), True)
             st = stats_of(pg)
             if width == 1280:
                 T.chk(f'{slug}: front-page numbers equal the combined explorer {tag}', st, combined_stats(pg, ds))
@@ -85,7 +94,7 @@ with sync_playwright() as p:
                 T.chk(f'{slug}: second table opens from the nav {tag}', pg.inner_text('#nav span[aria-current]'), other)
                 T.chk(f'{slug}: second table shows rows {tag}', bool(re.search(r'[0-9,]+ rows', pg.inner_text('#matchbar'))), True)
             pg.goto(base); wait_list(pg)
-            pg.screenshot(path=f'/tmp/sites/{slug}-{width}.png', full_page=False)
+            os.makedirs(os.environ.get('SHOTS_DIR', '/tmp/sites'), exist_ok=True); pg.screenshot(path=os.path.join(os.environ.get('SHOTS_DIR', '/tmp/sites'), f'{slug}-{width}.png'), full_page=False)
         print(f'errors {tag}:', errs[:4])
         pg.close()
     b.close()

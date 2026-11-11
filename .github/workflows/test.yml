@@ -1,0 +1,21 @@
+name: Test
+
+# Checks that need no network: the script parses, the template has every element the script
+# looks up, and each built site folder has its page, 404 page, share tags and redirects.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node --check app.js
+      - run: python3 scripts/build_sites.py
+      - run: python3 scripts/test_build_sites.py
