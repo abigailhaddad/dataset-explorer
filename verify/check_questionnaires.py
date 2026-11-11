@@ -7,7 +7,11 @@ import drive
 from checklib import *
 
 B = f"{H}abigailhaddad/usajobs-questionnaires/resolve/main/data/"
-QQ = f"(select * replace (nullif(position_title,'') as position_title, nullif(agency,'') as agency, nullif(hiring_agency,'') as hiring_agency, nullif(announcement_number,'') as announcement_number, nullif(occupation_series,'') as occupation_series) from read_parquet('{B}questionnaires/part-2025-release.parquet'))"
+# Every published part file, not the explorer's trimmed copy, so this checks the page against the record.
+import json, urllib.request
+QPARTS = ', '.join(f"'{H}abigailhaddad/usajobs-questionnaires/resolve/main/{f['path']}'" for f in json.load(urllib.request.urlopen(
+    'https://huggingface.co/api/datasets/abigailhaddad/usajobs-questionnaires/tree/main/data/questionnaires')) if f['path'].endswith('.parquet'))
+QQ = f"(select * replace (nullif(position_title,'') as position_title, nullif(agency,'') as agency, nullif(hiring_agency,'') as hiring_agency, nullif(announcement_number,'') as announcement_number, nullif(occupation_series,'') as occupation_series) from read_parquet([{QPARTS}], union_by_name=true))"
 def num(x): return f"{int(x):,}"
 def med(x): return f"{x:,.2f}".rstrip('0').rstrip('.') if x is not None else '—'
 
