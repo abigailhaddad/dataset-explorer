@@ -7,3 +7,6 @@ dist/
 dist-sites/
 .DS_Store
 __pycache__/
+
+# Local Claude Code setup (the Impeccable skill, agents and an 18 MB engine binary); not part of the site
+.claude/
