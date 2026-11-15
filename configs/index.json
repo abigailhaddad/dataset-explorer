@@ -130,5 +130,15 @@
    "oira-meetings",
    "eo12866"
   ]
+ },
+ {
+  "id": "sbir-awards",
+  "title": "SBIR and STTR awards",
+  "blurb": "Every SBIR and STTR award SBIR.gov publishes, 1983 to now.",
+  "aliases": [
+   "sbir",
+   "sttr",
+   "sbir-sttr-awards"
+  ]
  }
 ]
