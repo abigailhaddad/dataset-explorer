@@ -62,6 +62,9 @@ SITES = [
     {'slug': 'dol-arb-decisions', 'title': 'DOL ARB decisions', 'default': 'dol-arb',
      'datasets': ['dol-arb'], 'hf': 'abigailhaddad/dol-arb-decisions',
      'repo': 'abigailhaddad/dol-arb-decisions', 'favicon': 'AR'},
+    {'slug': 'nlrb-decisions', 'title': 'NLRB decisions', 'default': 'nlrb',
+     'datasets': ['nlrb'], 'hf': 'abigailhaddad/nlrb-decisions',
+     'repo': 'abigailhaddad/nlrb-decisions', 'favicon': 'NL'},
 ]
 
 

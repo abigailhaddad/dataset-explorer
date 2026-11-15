@@ -150,5 +150,14 @@
    "arb",
    "arb-decisions"
   ]
+ },
+ {
+  "id": "nlrb",
+  "title": "NLRB decisions",
+  "blurb": "Every entry on NLRB's Board, unpublished and ALJ decision listings.",
+  "aliases": [
+   "nlrb-decisions",
+   "nlrb-board-decisions"
+  ]
  }
 ]
