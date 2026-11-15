@@ -99,6 +99,7 @@ The same engine can run as a site for one dataset. `python3 scripts/build_sites.
 | `usajobs-questionnaires` | USAJOBS questionnaires (opens first), USAJOBS questions |
 | `federal-ja-documents` | J&A documents |
 | `dc-procurement` | DC contracts (opens first), DC purchase orders, DC payments, DC solicitations |
+| `nlrb-decisions` | NLRB decisions |
 
 In a site folder, `?d=` is optional: the default table opens without it, and `?d=<id>` still picks another table of the same site. The heading, tab title, favicon letters and subtitle are the site's own. The nav lists only that site's tables (it is hidden when there is one), and an unknown `?d=` lists only those tables. The footer links to the dataset on Hugging Face, the code and "More datasets". That last link is the constant `MORE_DATASETS_URL` in `scripts/build_sites.py`, a placeholder until the adoption page has an address.
 
