@@ -56,6 +56,9 @@ SITES = [
     {'slug': 'oira-meetings', 'title': 'OIRA EO 12866 meetings', 'default': 'oira',
      'datasets': ['oira'], 'hf': 'abigailhaddad/oira-eo12866-meetings',
      'repo': 'abigailhaddad/oira-meetings', 'favicon': 'OI'},
+    {'slug': 'cbca-decisions', 'title': 'CBCA decisions', 'default': 'cbca',
+     'datasets': ['cbca'], 'hf': 'abigailhaddad/cbca-decisions',
+     'repo': 'abigailhaddad/cbca-decisions', 'favicon': 'CB'},
 ]
 
 

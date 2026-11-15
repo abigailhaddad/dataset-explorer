@@ -130,5 +130,15 @@
    "oira-meetings",
    "eo12866"
   ]
+ },
+ {
+  "id": "cbca",
+  "title": "CBCA decisions",
+  "blurb": "Every decision on the Civilian Board of Contract Appeals' listings, with full text.",
+  "aliases": [
+   "cbca-decisions",
+   "contract-appeals",
+   "civilian-board-of-contract-appeals"
+  ]
  }
 ]

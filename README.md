@@ -99,6 +99,7 @@ The same engine can run as a site for one dataset. `python3 scripts/build_sites.
 | `usajobs-questionnaires` | USAJOBS questionnaires (opens first), USAJOBS questions |
 | `federal-ja-documents` | J&A documents |
 | `dc-procurement` | DC contracts (opens first), DC purchase orders, DC payments, DC solicitations |
+| `cbca-decisions` | CBCA decisions |
 
 In a site folder, `?d=` is optional: the default table opens without it, and `?d=<id>` still picks another table of the same site. The heading, tab title, favicon letters and subtitle are the site's own. The nav lists only that site's tables (it is hidden when there is one), and an unknown `?d=` lists only those tables. The footer links to the dataset on Hugging Face, the code and "More datasets". That last link is the constant `MORE_DATASETS_URL` in `scripts/build_sites.py`, a placeholder until the adoption page has an address.
 
@@ -126,7 +127,7 @@ Stat cards, chart tables, pivot tables, record pages and related counts were com
 
 Each dataset site is its own Cloudflare Pages project, named after its slug (`eeoc-decisions`,
 `opm-union-contracts`, `sf133-budget-execution`, `usajobs-questionnaires`, `federal-ja-documents`,
-`dc-procurement`).
+`dc-procurement`, `cbca-decisions`).
 `.github/workflows/deploy-sites.yml` builds `dist-sites/` and deploys all six whenever the engine
 (`index.html`, `app.js`, `style.css`), a config or `scripts/build_sites.py` changes on `main`. It needs two
 repository secrets: `CLOUDFLARE_API_TOKEN` (Account > Cloudflare Pages > Edit) and `CLOUDFLARE_ACCOUNT_ID`.
