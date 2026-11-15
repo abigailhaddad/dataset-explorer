@@ -56,6 +56,9 @@ SITES = [
     {'slug': 'oira-meetings', 'title': 'OIRA EO 12866 meetings', 'default': 'oira',
      'datasets': ['oira'], 'hf': 'abigailhaddad/oira-eo12866-meetings',
      'repo': 'abigailhaddad/oira-meetings', 'favicon': 'OI'},
+    {'slug': 'dol-arb-decisions', 'title': 'DOL ARB decisions', 'default': 'dol-arb',
+     'datasets': ['dol-arb'], 'hf': 'abigailhaddad/dol-arb-decisions',
+     'repo': 'abigailhaddad/dol-arb-decisions', 'favicon': 'AR'},
 ]
 
 
