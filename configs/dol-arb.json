@@ -1,0 +1,302 @@
+{
+ "id": "dol-arb",
+ "title": "DOL ARB decisions",
+ "blurb": "Decisions of the Labor Department's Administrative Review Board, 1994 to now.",
+ "hfDataset": "abigailhaddad/dol-arb-decisions",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/dol-arb-decisions/resolve/main/decisions.parquet"
+  ]
+ },
+ "key": "decision_id",
+ "covers": "One row per decision on the ARB's two published lists (by party name and by month), with a link to each decision. Text for the 523 decisions hosted on www.dol.gov. Unofficial copy; lists read 2026-11-15, newest decision 2026-09-29.",
+ "caveats": [
+  "No outcome column. Titles like \"Decision and Order of Remand\" are as listed; read the decision.",
+  "Program is the case-type code in the file's folder (STA, SOX, ERA...), not a label DOL assigns to the decision.",
+  "58 rows link a file whose ARB number isn't in the caption. Most are slips in DOL's list."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/dol-arb-decisions"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/dol-arb-decisions"
+  },
+  {
+   "label": "ARB decisions on dol.gov",
+   "href": "https://www.dol.gov/agencies/arb/decisions"
+  }
+ ],
+ "searchColumns": [
+  "case_name",
+  "indexed_names",
+  "decision_title",
+  "arb_numbers",
+  "alj_numbers"
+ ],
+ "defaultSort": {
+  "col": "decision_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "decision_id",
+   "label": "Id",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "decision_date",
+   "label": "Decided",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "case_name",
+   "label": "Case",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "decision_title",
+   "label": "Decision",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "program",
+   "label": "Program",
+   "type": "text",
+   "filter": "select",
+   "help": "Case-type code from the folder the decision file sits in (OALJ's codes: STA, SOX, ERA, AIR, DBA...)."
+  },
+  {
+   "key": "arb_numbers",
+   "label": "ARB No.",
+   "type": "text"
+  },
+  {
+   "key": "alj_numbers",
+   "label": "ALJ No.",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "issued_by",
+   "label": "Issued by",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "help": "As the listing gives it: ARB, Sec'y, PWBA, OAA, or blank."
+  },
+  {
+   "key": "indexed_names",
+   "label": "Listed under",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "listed_on",
+   "label": "Listed on",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "help": "Which of DOL's two lists has the decision: both, by-name only, or by-date only."
+  },
+  {
+   "key": "file_number_in_caption",
+   "label": "File number in caption",
+   "type": "bool",
+   "filter": "select",
+   "show": false,
+   "help": "Whether the ARB number in the file name appears in the caption the listing gives. False usually means the listing put the link under the wrong case."
+  },
+  {
+   "key": "text_status",
+   "label": "Text",
+   "type": "text",
+   "filter": "select",
+   "show": false
+  },
+  {
+   "key": "pages",
+   "label": "Pages",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "url",
+   "label": "Document",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "other_urls",
+   "label": "Other files",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "listing_line",
+   "label": "Listing line",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "caption",
+   "label": "Caption",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "listing_page",
+   "label": "Listing page",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "date_listing_months",
+   "label": "By-date pages",
+   "type": "text",
+   "show": false
+  }
+ ],
+ "record": {
+  "key": "decision_id",
+  "title": [
+   "{case_name}",
+   "{decision_title}"
+  ],
+  "subtitle": "{decision_title} \u00b7 {decision_date}",
+  "sections": [
+   {
+    "title": "Decision",
+    "columns": [
+     "decision_date",
+     "decision_title",
+     "issued_by",
+     "program",
+     "pages",
+     "text_status"
+    ]
+   },
+   {
+    "title": "Case",
+    "columns": [
+     "case_name",
+     "indexed_names",
+     "arb_numbers",
+     "alj_numbers"
+    ]
+   },
+   {
+    "title": "Source",
+    "columns": [
+     "listed_on",
+     "listing_page",
+     "date_listing_months",
+     "listing_line",
+     "caption",
+     "file_number_in_caption",
+     "url",
+     "other_urls"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "Decision on dol.gov",
+    "href": "{url}"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same case",
+    "cols": [
+     "arb_numbers"
+    ],
+    "title": "{decision_title}",
+    "sub": "{decision_date}",
+    "limit": 10
+   }
+  ],
+  "more": [
+   {
+    "id": "text",
+    "label": "Full text",
+    "button": "Show the text",
+    "hint": "Text pulled from the PDF with pdftotext. Only decisions hosted on www.dol.gov have it (mostly 2020 on). Reads a 6 MB file.",
+    "url": "https://huggingface.co/datasets/abigailhaddad/dol-arb-decisions/resolve/main/decision_text.parquet",
+    "where": "decision_id",
+    "value": "decision_id",
+    "columns": [
+     {
+      "key": "decision_id",
+      "label": "Decision"
+     },
+     {
+      "key": "text_status",
+      "label": "Text"
+     },
+     {
+      "key": "pages",
+      "label": "Pages"
+     }
+    ],
+    "text": "text",
+    "limit": 1
+   }
+  ]
+ },
+ "views": [
+  {
+   "id": "table",
+   "label": "Decisions",
+   "subtitle": "Every decision on the ARB's lists.",
+   "stats": [
+    {
+     "label": "Decisions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Programs",
+     "expr": "count(DISTINCT program)"
+    },
+    {
+     "label": "Newest",
+     "expr": "CAST(max(decision_date) AS VARCHAR)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Decisions by year",
+     "label": "strftime(decision_date, '%Y')",
+     "unit": "decisions"
+    },
+    {
+     "type": "top",
+     "title": "Programs",
+     "label": "program",
+     "unit": "decisions",
+     "limit": 15
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "columns": [
+   "program",
+   "issued_by",
+   "listed_on",
+   "text_status"
+  ],
+  "default": "program"
+ }
+}
