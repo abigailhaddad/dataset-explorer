@@ -12,7 +12,7 @@
  "key": "record_id",
  "covers": "One row per entry on NLRB's three decision listings: published Board decisions, unpublished Board decisions and administrative law judge decisions. Metadata and links only. Unofficial copy; first built from listings read on 2026-11-15.",
  "caveats": [
-  "No decision text or Board members: NLRB's robots.txt disallows the decision documents.",
+  "No decision text or Board members: NLRB's robots.txt disallows the decision documents. Some records show NLRB's weekly summary, which is not the decision.",
   "NLRB's listings cut case names off at 100 characters.",
   "Refreshed daily from the first pages of each listing."
  ],
@@ -140,6 +140,22 @@
    "label": "Case page",
    "type": "text",
    "show": false
+  },
+  {
+   "key": "summary_text",
+   "label": "NLRB weekly summary (not the decision)",
+   "type": "text",
+   "show": false,
+   "join": "s",
+   "help": "NLRB's own short summary from its weekly Summary of NLRB Decisions page, with the entry's header line. Not the decision text. When NLRB summarized the decision more than once (e.g. an erratum), each entry is shown, oldest first."
+  },
+  {
+   "key": "summary_week_url",
+   "label": "Weekly summary page",
+   "type": "text",
+   "show": false,
+   "join": "s",
+   "from": "week_url"
   }
  ],
  "record": {
@@ -168,7 +184,13 @@
     ]
    }
   ],
-  "text": [],
+  "text": [
+   {
+    "label": "NLRB weekly summary (not the decision)",
+    "column": "summary_text",
+    "skipEmpty": true
+   }
+  ],
   "links": [
    {
     "label": "Decision document on NLRB's site",
@@ -177,6 +199,10 @@
    {
     "label": "Case page on NLRB's site",
     "href": "{case_url}"
+   },
+   {
+    "label": "NLRB weekly summary page (the first, if there are several)",
+    "href": "{summary_week_url}"
    }
   ],
   "related": [
@@ -251,5 +277,15 @@
    "judge"
   ],
   "default": "year"
- }
+ },
+ "joins": [
+  {
+   "id": "s",
+   "on": "record_id",
+   "urls": [
+    "https://huggingface.co/datasets/abigailhaddad/nlrb-decisions/resolve/main/summaries.parquet"
+   ],
+   "sql": "SELECT record_id, string_agg(header || chr(10) || chr(10) || summary_text, chr(10) || chr(10) || '* * *' || chr(10) || chr(10) ORDER BY week_posted, week_url, entry_index) AS summary_text, arg_min(week_url, week_posted) AS week_url, count(*) AS summary_count FROM {file} WHERE record_id IS NOT NULL AND duplicate_of IS NULL GROUP BY record_id"
+  }
+ ]
 }
