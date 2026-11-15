@@ -140,5 +140,15 @@
    "sttr",
    "sbir-sttr-awards"
   ]
+ },
+ {
+  "id": "dol-arb",
+  "title": "DOL ARB decisions",
+  "blurb": "Decisions of the Labor Department's Administrative Review Board, 1994 to now.",
+  "aliases": [
+   "dol-arb-decisions",
+   "arb",
+   "arb-decisions"
+  ]
  }
 ]

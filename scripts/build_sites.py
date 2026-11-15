@@ -59,6 +59,9 @@ SITES = [
     {'slug': 'sbir-awards', 'title': 'SBIR and STTR awards', 'default': 'sbir-awards',
      'datasets': ['sbir-awards'], 'hf': 'abigailhaddad/sbir-awards',
      'repo': 'abigailhaddad/sbir-awards', 'favicon': 'SB'},
+    {'slug': 'dol-arb-decisions', 'title': 'DOL ARB decisions', 'default': 'dol-arb',
+     'datasets': ['dol-arb'], 'hf': 'abigailhaddad/dol-arb-decisions',
+     'repo': 'abigailhaddad/dol-arb-decisions', 'favicon': 'AR'},
 ]
 
 
