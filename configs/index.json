@@ -132,6 +132,35 @@
   ]
  },
  {
+  "id": "sbir-awards",
+  "title": "SBIR and STTR awards",
+  "blurb": "Every SBIR and STTR award SBIR.gov publishes, 1983 to now.",
+  "aliases": [
+   "sbir",
+   "sttr",
+   "sbir-sttr-awards"
+  ]
+ },
+ {
+  "id": "dol-arb",
+  "title": "DOL ARB decisions",
+  "blurb": "Decisions of the Labor Department's Administrative Review Board, 1994 to now.",
+  "aliases": [
+   "dol-arb-decisions",
+   "arb",
+   "arb-decisions"
+  ]
+ },
+ {
+  "id": "nlrb",
+  "title": "NLRB decisions",
+  "blurb": "Every entry on NLRB's Board, unpublished and ALJ decision listings.",
+  "aliases": [
+   "nlrb-decisions",
+   "nlrb-board-decisions"
+  ]
+ },
+ {
   "id": "cbca",
   "title": "CBCA decisions",
   "blurb": "Every decision on the Civilian Board of Contract Appeals' listings, with full text.",

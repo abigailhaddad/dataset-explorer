@@ -1,0 +1,255 @@
+{
+ "id": "nlrb",
+ "title": "NLRB decisions",
+ "blurb": "Every entry on NLRB's Board, unpublished and ALJ decision listings.",
+ "hfDataset": "abigailhaddad/nlrb-decisions",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/nlrb-decisions/resolve/main/decisions.parquet"
+  ]
+ },
+ "key": "record_id",
+ "covers": "One row per entry on NLRB's three decision listings: published Board decisions, unpublished Board decisions and administrative law judge decisions. Metadata and links only. Unofficial copy; first built from listings read on 2026-11-15.",
+ "caveats": [
+  "No decision text or Board members: NLRB's robots.txt disallows the decision documents.",
+  "NLRB's listings cut case names off at 100 characters.",
+  "Refreshed daily from the first pages of each listing."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/nlrb-decisions"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/nlrb-decisions"
+  },
+  {
+   "label": "NLRB decisions",
+   "href": "https://www.nlrb.gov/cases-decisions/decisions"
+  }
+ ],
+ "searchColumns": [
+  "case_name",
+  "case_number",
+  "citation",
+  "jd_number"
+ ],
+ "defaultSort": {
+  "col": "issuance_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "record_id",
+   "label": "Record id",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "issuance_date",
+   "label": "Issued",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "listing_title",
+   "label": "Listing",
+   "type": "text",
+   "filter": "select",
+   "help": "Which NLRB listing the entry is on. This is the only decision type NLRB's listings give."
+  },
+  {
+   "key": "listing",
+   "label": "Listing code",
+   "type": "text",
+   "show": false,
+   "help": "board, unpublished or alj."
+  },
+  {
+   "key": "citation",
+   "label": "Citation",
+   "type": "text"
+  },
+  {
+   "key": "case_name",
+   "label": "Case name",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "case_number",
+   "label": "Case number",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "volume",
+   "label": "Volume",
+   "type": "number",
+   "filter": "range",
+   "show": false
+  },
+  {
+   "key": "citation_form",
+   "label": "Citation form",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "help": "slip opinion number (NLRB No. N) or bound volume page, read from the citation's wording."
+  },
+  {
+   "key": "jd_number",
+   "label": "JD number",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "judge",
+   "label": "Judge",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "show": false
+  },
+  {
+   "key": "board_outcome",
+   "label": "Board outcome",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "help": "ALJ decisions only, as NLRB's listing shows it."
+  },
+  {
+   "key": "year",
+   "label": "Year",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "document_url",
+   "label": "Document",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "case_url",
+   "label": "Case page",
+   "type": "text",
+   "show": false
+  }
+ ],
+ "record": {
+  "key": "record_id",
+  "title": "{case_name}",
+  "subtitle": "{listing_title} \u00b7 {issuance_date}",
+  "sections": [
+   {
+    "title": "Decision",
+    "columns": [
+     "issuance_date",
+     "listing_title",
+     "citation",
+     "citation_form",
+     "volume",
+     "jd_number",
+     "judge",
+     "board_outcome"
+    ]
+   },
+   {
+    "title": "Case",
+    "columns": [
+     "case_name",
+     "case_number"
+    ]
+   }
+  ],
+  "text": [],
+  "links": [
+   {
+    "label": "Decision document on NLRB's site",
+    "href": "{document_url}"
+   },
+   {
+    "label": "Case page on NLRB's site",
+    "href": "{case_url}"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same case number",
+    "cols": [
+     "case_number"
+    ],
+    "title": "{listing_title}",
+    "sub": "{issuance_date} \u00b7 {citation}",
+    "limit": 10
+   }
+  ]
+ },
+ "views": [
+  {
+   "id": "table",
+   "label": "Decisions",
+   "subtitle": "Every entry on NLRB's three decision listings.",
+   "stats": [
+    {
+     "label": "Entries",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Board decisions",
+     "expr": "count(*) FILTER (WHERE listing = 'board')"
+    },
+    {
+     "label": "ALJ decisions",
+     "expr": "count(*) FILTER (WHERE listing = 'alj')"
+    },
+    {
+     "label": "Newest",
+     "expr": "CAST(max(issuance_date) AS VARCHAR)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "stack",
+     "title": "Entries by year and listing",
+     "x": "strftime(issuance_date, '%Y')",
+     "series": "listing_title",
+     "kind": "year",
+     "unit": "entries"
+    },
+    {
+     "type": "top",
+     "title": "Board outcome of ALJ decisions",
+     "label": "CASE WHEN listing = 'alj' THEN board_outcome END",
+     "unit": "decisions",
+     "limit": 12,
+     "blank": false
+    },
+    {
+     "type": "top",
+     "title": "Most ALJ decisions, by judge",
+     "label": "CASE WHEN listing = 'alj' THEN judge END",
+     "unit": "decisions",
+     "limit": 15,
+     "blank": false
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "columns": [
+   "listing_title",
+   "year",
+   "citation_form",
+   "board_outcome",
+   "judge"
+  ],
+  "default": "year"
+ }
+}
