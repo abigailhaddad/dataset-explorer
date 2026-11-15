@@ -132,6 +132,16 @@
   ]
  },
  {
+  "id": "sbir-awards",
+  "title": "SBIR and STTR awards",
+  "blurb": "Every SBIR and STTR award SBIR.gov publishes, 1983 to now.",
+  "aliases": [
+   "sbir",
+   "sttr",
+   "sbir-sttr-awards"
+  ]
+ },
+ {
   "id": "dol-arb",
   "title": "DOL ARB decisions",
   "blurb": "Decisions of the Labor Department's Administrative Review Board, 1994 to now.",

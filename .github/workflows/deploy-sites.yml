@@ -69,6 +69,7 @@ jobs:
           - dc-procurement
           - mspb-decisions
           - oira-meetings
+          - sbir-awards
           - dol-arb-decisions
     env:
       HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}

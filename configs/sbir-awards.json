@@ -1,0 +1,490 @@
+{
+ "id": "sbir-awards",
+ "title": "SBIR and STTR awards",
+ "blurb": "Every SBIR and STTR award SBIR.gov publishes, 1983 to now.",
+ "hfDataset": "abigailhaddad/sbir-awards",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/sbir-awards/resolve/main/awards.parquet"
+  ]
+ },
+ "key": "record_id",
+ "covers": "One row per award in SBIR.gov's bulk award file, minus its phone, email and contact columns. Abstracts come from SBIR.gov's older file and stop in early 2024. Unofficial copy.",
+ "caveats": [
+  "Amounts are SBIR.gov's total award amount, not obligations.",
+  "Recent years fill in for months: SBIR.gov's file lags.",
+  "Possible duplicates are flagged, not removed."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/sbir-awards"
+  },
+  {
+   "label": "Code",
+   "href": "https://github.com/abigailhaddad/sbir-awards"
+  },
+  {
+   "label": "SBIR.gov awards",
+   "href": "https://www.sbir.gov/awards"
+  }
+ ],
+ "searchColumns": [
+  "company",
+  "award_title",
+  "contract",
+  "agency_tracking_number",
+  "topic_code",
+  "uei"
+ ],
+ "defaultSort": {
+  "col": "award_year",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "record_id",
+   "label": "Record id",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "award_year",
+   "label": "Year",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "company",
+   "label": "Company",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "award_title",
+   "label": "Title",
+   "type": "text"
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "branch",
+   "label": "Branch",
+   "type": "text",
+   "filter": "text",
+   "suggest": true
+  },
+  {
+   "key": "program",
+   "label": "Program",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "phase",
+   "label": "Phase",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "award_amount",
+   "label": "Amount",
+   "type": "number",
+   "filter": "range",
+   "format": "currency",
+   "help": "SBIR.gov's Total Award Amount."
+  },
+  {
+   "key": "state",
+   "label": "State",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "city",
+   "label": "City",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "proposal_award_date",
+   "label": "Award date",
+   "type": "date",
+   "filter": "range",
+   "show": false,
+   "help": "Blank on about half the rows, mostly older ones."
+  },
+  {
+   "key": "contract_end_date",
+   "label": "End date",
+   "type": "date",
+   "show": false
+  },
+  {
+   "key": "contract",
+   "label": "Contract or grant number",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "agency_tracking_number",
+   "label": "Agency tracking number",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "solicitation_number",
+   "label": "Solicitation number",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "solicitation_year",
+   "label": "Solicitation year",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "topic_code",
+   "label": "Topic code",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "uei",
+   "label": "UEI",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "duns",
+   "label": "DUNS",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "hubzone_owned",
+   "label": "HUBZone owned",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "help": "Y, N or U (unknown), as SBIR.gov publishes it."
+  },
+  {
+   "key": "woman_owned",
+   "label": "Woman owned",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "help": "Y, N or U (unknown), as SBIR.gov publishes it."
+  },
+  {
+   "key": "socially_economically_disadvantaged",
+   "label": "Socially and economically disadvantaged",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "help": "Y, N or U (unknown), as SBIR.gov publishes it."
+  },
+  {
+   "key": "number_employees",
+   "label": "Employees",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "company_website",
+   "label": "Company website",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "pi_name",
+   "label": "Principal investigator",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "ri_name",
+   "label": "Research institution",
+   "type": "text",
+   "filter": "text",
+   "show": false,
+   "help": "STTR partner institution."
+  },
+  {
+   "key": "abstract",
+   "label": "Abstract",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "exact_duplicate",
+   "label": "Exact duplicate",
+   "type": "bool",
+   "filter": "select",
+   "show": false,
+   "help": "Repeats another row in every column."
+  },
+  {
+   "key": "possible_duplicate_count",
+   "label": "Rows like this",
+   "type": "number",
+   "filter": "range",
+   "show": false,
+   "help": "Rows with the same agency, company, phase, year, title and amount. 1 = no lookalike."
+  }
+ ],
+ "views": [
+  {
+   "id": "table",
+   "label": "Awards",
+   "subtitle": "Every SBIR and STTR award on SBIR.gov.",
+   "stats": [
+    {
+     "label": "Awards",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Total amount",
+     "expr": "sum(award_amount)",
+     "format": "billions",
+     "hint": "Sum of SBIR.gov's total award amounts for the rows shown."
+    },
+    {
+     "label": "Companies",
+     "expr": "count(DISTINCT company)",
+     "hint": "Distinct names as written. One firm can have several spellings."
+    },
+    {
+     "label": "Years",
+     "expr": "CAST(min(award_year) AS VARCHAR) || ' to ' || CAST(max(award_year) AS VARCHAR)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Awards by year",
+     "label": "CAST(award_year AS VARCHAR)",
+     "unit": "awards"
+    },
+    {
+     "type": "top",
+     "title": "Top agencies",
+     "label": "agency",
+     "unit": "awards",
+     "limit": 13
+    }
+   ]
+  },
+  {
+   "id": "money",
+   "label": "Dollars",
+   "subtitle": "Total award amounts by year and agency.",
+   "stats": [
+    {
+     "label": "Total amount",
+     "expr": "sum(award_amount)",
+     "format": "billions"
+    },
+    {
+     "label": "Median award",
+     "expr": "median(award_amount)",
+     "format": "currency"
+    },
+    {
+     "label": "No amount",
+     "expr": "count(*) FILTER (WHERE award_amount IS NULL OR award_amount = 0)",
+     "hint": "Blank or 0 in SBIR.gov's file."
+    }
+   ],
+   "charts": [
+    {
+     "type": "stack",
+     "title": "Amount by year and agency",
+     "x": "CAST(award_year AS VARCHAR)",
+     "series": "agency",
+     "kind": "year",
+     "value": "sum(award_amount)",
+     "format": "currency",
+     "unit": "dollars",
+     "seriesLimit": 5
+    },
+    {
+     "type": "top",
+     "title": "Top companies by amount",
+     "label": "company",
+     "value": "sum(award_amount)",
+     "format": "currency",
+     "unit": "dollars",
+     "limit": 15,
+     "note": "Names as written; one firm can appear under several spellings."
+    }
+   ]
+  },
+  {
+   "id": "phases",
+   "label": "Phases",
+   "subtitle": "Phase I and Phase II, SBIR and STTR.",
+   "stats": [
+    {
+     "label": "Phase I",
+     "expr": "count(*) FILTER (WHERE phase = 'Phase I')"
+    },
+    {
+     "label": "Phase II",
+     "expr": "count(*) FILTER (WHERE phase LIKE 'Phase II%')",
+     "hint": "Includes Direct to Phase II."
+    },
+    {
+     "label": "STTR",
+     "expr": "count(*) FILTER (WHERE program = 'STTR')"
+    }
+   ],
+   "charts": [
+    {
+     "type": "stack",
+     "title": "Awards by year and phase",
+     "x": "CAST(award_year AS VARCHAR)",
+     "series": "phase",
+     "kind": "year",
+     "unit": "awards"
+    },
+    {
+     "type": "items",
+     "title": "Ownership flags (Y)",
+     "unit": "awards",
+     "items": [
+      {
+       "label": "Woman owned",
+       "expr": "count(*) FILTER (WHERE woman_owned = 'Y')"
+      },
+      {
+       "label": "Socially and economically disadvantaged",
+       "expr": "count(*) FILTER (WHERE socially_economically_disadvantaged = 'Y')"
+      },
+      {
+       "label": "HUBZone owned",
+       "expr": "count(*) FILTER (WHERE hubzone_owned = 'Y')"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "branch",
+   "program",
+   "phase",
+   "award_year",
+   "state",
+   "woman_owned",
+   "hubzone_owned",
+   "socially_economically_disadvantaged"
+  ],
+  "measures": [
+   {
+    "id": "amount",
+    "label": "Total amount",
+    "expr": "sum(award_amount)",
+    "format": "currency"
+   }
+  ]
+ },
+ "record": {
+  "key": "record_id",
+  "title": [
+   "{award_title}",
+   "{company}"
+  ],
+  "subtitle": "{company} \u00b7 {agency} {branch} \u00b7 {program} {phase} \u00b7 {award_year}",
+  "sections": [
+   {
+    "title": "Award",
+    "columns": [
+     "agency",
+     "branch",
+     "program",
+     "phase",
+     "award_year",
+     "award_amount",
+     "proposal_award_date",
+     "contract_end_date",
+     "contract",
+     "agency_tracking_number",
+     "solicitation_number",
+     "solicitation_year",
+     "topic_code"
+    ]
+   },
+   {
+    "title": "Company",
+    "columns": [
+     "company",
+     "uei",
+     "duns",
+     "city",
+     "state",
+     "number_employees",
+     "company_website",
+     "woman_owned",
+     "socially_economically_disadvantaged",
+     "hubzone_owned",
+     "pi_name",
+     "ri_name"
+    ]
+   },
+   {
+    "title": "Duplicates",
+    "columns": [
+     "exact_duplicate",
+     "possible_duplicate_count"
+    ]
+   }
+  ],
+  "text": [
+   {
+    "label": "Abstract",
+    "column": "abstract"
+   }
+  ],
+  "links": [
+   {
+    "label": "Find this award on SBIR.gov",
+    "href": "https://www.sbir.gov/awards?company_name={company:enc}"
+   }
+  ],
+  "related": [
+   {
+    "label": "Other awards to this company",
+    "cols": [
+     "company"
+    ],
+    "title": "{award_title}",
+    "sub": "{award_year} \u00b7 {agency} \u00b7 {phase}",
+    "limit": 20
+   },
+   {
+    "label": "Same contract number",
+    "cols": [
+     "contract"
+    ],
+    "title": "{award_title}",
+    "sub": "{company} \u00b7 {award_year} \u00b7 {phase}",
+    "limit": 20,
+    "lazy": true,
+    "button": "Show awards with this number"
+   }
+  ]
+ }
+}
