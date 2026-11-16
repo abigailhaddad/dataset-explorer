@@ -68,6 +68,9 @@ SITES = [
     {'slug': 'cbca-decisions', 'title': 'CBCA decisions', 'default': 'cbca',
      'datasets': ['cbca'], 'hf': 'abigailhaddad/cbca-decisions',
      'repo': 'abigailhaddad/cbca-decisions', 'favicon': 'CB'},
+    {'slug': 'flra-decisions', 'title': 'FLRA decisions', 'default': 'flra-authority',
+     'datasets': ['flra-authority', 'flra-fsip'], 'hf': 'abigailhaddad/flra-decisions',
+     'repo': 'abigailhaddad/flra-decisions', 'favicon': 'FL'},
 ]
 
 

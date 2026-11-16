@@ -1,0 +1,225 @@
+{
+ "id": "flra-fsip",
+ "title": "Impasses Panel decisions",
+ "blurb": "Every decision on the Federal Service Impasses Panel's listing, 1988 to 2025, with full text.",
+ "hfDataset": "abigailhaddad/flra-decisions",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/flra-decisions/resolve/main/fsip_decisions.parquet"
+  ]
+ },
+ "joins": [
+  {
+   "id": "tx",
+   "on": "html_url",
+   "urls": [
+    "https://huggingface.co/datasets/abigailhaddad/flra-decisions/resolve/main/decision_text.parquet"
+   ],
+   "sql": "SELECT html_url, text_status, text_source, text_chars, text FROM {file} WHERE \"table\" = 'fsip'"
+  }
+ ],
+ "key": "html_url",
+ "covers": "One row per decision on the Federal Service Impasses Panel's listing on flra.gov: 1,071 decisions, 1988-09-16 to 2025-01-15 (the newest on the listing). Listing read 2026-11-08, both sort orders, deduplicated by decision page. Text built 2026-11-16. Unofficial copy; not updated daily yet.",
+ "caveats": [
+  "108 decisions have no text (Text = empty), mostly 1988 to 2018: the page is title-only and the PDF is a scan with no text layer. Search won't find them; open the PDF.",
+  "4 decisions take their text from the PDF (Text = ok_pdf).",
+  "Many pages from 2009 on leave out the caption, so the case number and parties may not be in the text.",
+  "The listing names parties for only 14 decisions."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/flra-decisions"
+  },
+  {
+   "label": "Code and checks",
+   "href": "https://github.com/abigailhaddad/flra-decisions"
+  },
+  {
+   "label": "FSIP decisions on flra.gov",
+   "href": "https://www.flra.gov/decisions/fsip-decisions"
+  }
+ ],
+ "searchColumns": [
+  "case_number",
+  "case_number_from_pdf_name",
+  "parties",
+  "text"
+ ],
+ "defaultSort": {
+  "col": "issuance_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "html_url",
+   "label": "Decision page",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "issuance_date",
+   "label": "Issued",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "case_number",
+   "label": "Case number",
+   "type": "text"
+  },
+  {
+   "key": "parties",
+   "label": "Parties",
+   "type": "text",
+   "filter": "text"
+  },
+  {
+   "key": "case_number_from_pdf_name",
+   "label": "Case number in PDF name",
+   "type": "text",
+   "show": false,
+   "help": "Read from the PDF's file name. It sometimes differs from the listed case number."
+  },
+  {
+   "key": "pdf_url",
+   "label": "PDF",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "pdf_size",
+   "label": "PDF size",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "listing_page",
+   "label": "Listing page",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "text_status",
+   "label": "Text",
+   "type": "text",
+   "filter": "select",
+   "show": true,
+   "join": "tx",
+   "help": "ok: from the decision's flra.gov page. ok_pdf: from the PDF, because the page has no body, is cut off or shows a different decision. partial: the page is cut off and there is no PDF text. empty: the page is title-only and the PDF is a scan with no text layer."
+  },
+  {
+   "key": "text_source",
+   "label": "Text from",
+   "type": "text",
+   "show": false,
+   "join": "tx"
+  },
+  {
+   "key": "text_chars",
+   "label": "Text length (characters)",
+   "type": "number",
+   "filter": "range",
+   "show": false,
+   "join": "tx"
+  },
+  {
+   "key": "text",
+   "label": "Decision text",
+   "type": "text",
+   "show": false,
+   "join": "tx"
+  }
+ ],
+ "record": {
+  "key": "html_url",
+  "title": [
+   "{case_number}"
+  ],
+  "subtitle": "Impasses Panel \u00b7 {issuance_date}",
+  "sections": [
+   {
+    "title": "Decision",
+    "columns": [
+     "issuance_date",
+     "case_number",
+     "case_number_from_pdf_name",
+     "parties",
+     "text_status",
+     "text_source",
+     "text_chars"
+    ]
+   },
+   {
+    "title": "Source",
+    "columns": [
+     "html_url",
+     "pdf_url",
+     "pdf_size",
+     "listing_page"
+    ]
+   }
+  ],
+  "text": [
+   {
+    "label": "Decision text (from FLRA's page, or the PDF when Text from is pdf; check flra.gov before quoting)",
+    "column": "text"
+   }
+  ],
+  "links": [
+   {
+    "label": "Decision on flra.gov",
+    "href": "{html_url}"
+   },
+   {
+    "label": "PDF on flra.gov",
+    "href": "{pdf_url}"
+   }
+  ]
+ },
+ "views": [
+  {
+   "id": "table",
+   "label": "Decisions",
+   "subtitle": "Every decision on the Impasses Panel's listing.",
+   "stats": [
+    {
+     "label": "Decisions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "With text",
+     "expr": "count(*) FILTER (WHERE text_status IN ('ok', 'ok_pdf'))"
+    },
+    {
+     "label": "Newest",
+     "expr": "CAST(max(issuance_date) AS VARCHAR)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Decisions by year",
+     "label": "strftime(issuance_date, '%Y')",
+     "unit": "decisions"
+    },
+    {
+     "type": "top",
+     "title": "Text",
+     "label": "text_status",
+     "unit": "decisions",
+     "limit": 5
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "text_status",
+  "columns": [
+   "text_status",
+   "text_source"
+  ]
+ }
+}
