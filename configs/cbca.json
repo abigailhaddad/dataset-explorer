@@ -34,7 +34,8 @@
   "party",
   "case_number",
   "agency",
-  "judge"
+  "judge",
+  "text"
  ],
  "defaultSort": {
   "col": "decision_date",

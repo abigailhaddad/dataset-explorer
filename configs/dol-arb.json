@@ -35,7 +35,8 @@
   "indexed_names",
   "decision_title",
   "arb_numbers",
-  "alj_numbers"
+  "alj_numbers",
+  "text"
  ],
  "defaultSort": {
   "col": "decision_date",
@@ -164,6 +165,13 @@
    "label": "By-date pages",
    "type": "text",
    "show": false
+  },
+  {
+   "key": "text",
+   "label": "Decision text",
+   "type": "text",
+   "show": false,
+   "join": "tx"
   }
  ],
  "record": {
@@ -298,5 +306,14 @@
    "text_status"
   ],
   "default": "program"
- }
+ },
+ "joins": [
+  {
+   "id": "tx",
+   "on": "decision_id",
+   "urls": [
+    "https://huggingface.co/datasets/abigailhaddad/dol-arb-decisions/resolve/main/decision_text.parquet"
+   ]
+  }
+ ]
 }
