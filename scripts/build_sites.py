@@ -65,6 +65,9 @@ SITES = [
     {'slug': 'nlrb-decisions', 'title': 'NLRB decisions', 'default': 'nlrb',
      'datasets': ['nlrb'], 'hf': 'abigailhaddad/nlrb-decisions',
      'repo': 'abigailhaddad/nlrb-decisions', 'favicon': 'NL'},
+    {'slug': 'cbca-decisions', 'title': 'CBCA decisions', 'default': 'cbca',
+     'datasets': ['cbca'], 'hf': 'abigailhaddad/cbca-decisions',
+     'repo': 'abigailhaddad/cbca-decisions', 'favicon': 'CB'},
 ]
 
 

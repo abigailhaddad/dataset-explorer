@@ -1,0 +1,330 @@
+{
+ "id": "cbca",
+ "title": "CBCA decisions",
+ "blurb": "Every decision on the Civilian Board of Contract Appeals' listings, with full text.",
+ "hfDataset": "abigailhaddad/cbca-decisions",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/cbca-decisions/resolve/main/data/decisions.parquet"
+  ]
+ },
+ "key": "id",
+ "covers": "One row per entry on CBCA's eight decision listings, 2002 to 2026-10-27, with the decision text. Unofficial copy; listings read 2026-11-15, refreshed daily.",
+ "caveats": [
+  "Agency is read from the decision's caption (or who appeared for the government), not listed by the board. Blank when the caption didn't match.",
+  "Type (Decision, Dismissal, Order) is only on the Contract Disputes Act page, and only since 2015.",
+  "The Armed Services Board (ASBCA) is not here: its site blocked automated requests."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/cbca-decisions"
+  },
+  {
+   "label": "Code and checks",
+   "href": "https://github.com/abigailhaddad/cbca-decisions"
+  },
+  {
+   "label": "CBCA decisions",
+   "href": "https://www.cbca.gov/decisions/"
+  }
+ ],
+ "searchColumns": [
+  "party",
+  "case_number",
+  "agency",
+  "judge"
+ ],
+ "defaultSort": {
+  "col": "decision_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "id",
+   "label": "Id",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "decision_date",
+   "label": "Date",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "case_number",
+   "label": "Case number",
+   "type": "text"
+  },
+  {
+   "key": "party",
+   "label": "Party",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "Appellant, claimant, applicant or petitioner, as the listing names them."
+  },
+  {
+   "key": "case_type",
+   "label": "Case type",
+   "type": "text",
+   "filter": "select",
+   "help": "Which of the board's listing pages the row is on."
+  },
+  {
+   "key": "agency",
+   "label": "Agency",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "Read from the decision text: the Respondent in the caption, or the agency someone appeared for. Uppercased."
+  },
+  {
+   "key": "judge",
+   "label": "Judge",
+   "type": "text",
+   "filter": "select"
+  },
+  {
+   "key": "decision_type",
+   "label": "Type",
+   "type": "text",
+   "filter": "select",
+   "help": "Only on the Contract Disputes Act page since 2015. Two misspellings on the listing (Decison, Decsion) are fixed here; the listing's spelling is in decision_type_raw."
+  },
+  {
+   "key": "docket_count",
+   "label": "Dockets",
+   "type": "number",
+   "filter": "range"
+  },
+  {
+   "key": "dockets",
+   "label": "Docket numbers",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "party_role",
+   "label": "Party role",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "agency_source",
+   "label": "Agency read from",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "pdf_pages",
+   "label": "Pages",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "text_status",
+   "label": "Text",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "help": "ok, or why there is no text (no link, scanned PDF)."
+  },
+  {
+   "key": "date_in_text",
+   "label": "Listed date in text",
+   "type": "bool",
+   "filter": "select",
+   "show": false,
+   "help": "False means the decision doesn't give the listed date in its opening. Often a typo on the listing."
+  },
+  {
+   "key": "docket_in_text",
+   "label": "Docket number in text",
+   "type": "bool",
+   "filter": "select",
+   "show": false,
+   "help": "False means the linked file may be the wrong decision. Check it."
+  },
+  {
+   "key": "docket_in_file_name",
+   "label": "Docket number in file name",
+   "type": "bool",
+   "show": false
+  },
+  {
+   "key": "also_listed_on",
+   "label": "Also listed on",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "file_format",
+   "label": "File format",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "decision_url",
+   "label": "Decision file",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "listing_page",
+   "label": "Listing page",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "decision_type_raw",
+   "label": "Type as listed",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "text",
+   "label": "Decision text",
+   "type": "text",
+   "show": false
+  }
+ ],
+ "record": {
+  "key": "id",
+  "title": [
+   "{party}"
+  ],
+  "subtitle": "{case_number} \u00b7 {decision_date}",
+  "sections": [
+   {
+    "title": "Decision",
+    "columns": [
+     "decision_date",
+     "decision_type",
+     "decision_type_raw",
+     "judge",
+     "pdf_pages",
+     "text_status"
+    ]
+   },
+   {
+    "title": "Case",
+    "columns": [
+     "case_number",
+     "dockets",
+     "docket_count",
+     "case_type",
+     "party",
+     "party_role",
+     "agency",
+     "agency_source"
+    ]
+   },
+   {
+    "title": "Source",
+    "columns": [
+     "decision_url",
+     "file_format",
+     "listing_page",
+     "also_listed_on",
+     "date_in_text",
+     "docket_in_text",
+     "docket_in_file_name"
+    ]
+   }
+  ],
+  "text": [
+   {
+    "label": "Decision text (extracted with pypdf; check the PDF before quoting)",
+    "column": "text"
+   }
+  ],
+  "links": [
+   {
+    "label": "Decision on CBCA's site",
+    "href": "{decision_url}"
+   },
+   {
+    "label": "CBCA listing page",
+    "href": "{listing_page}"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same party",
+    "cols": [
+     "party"
+    ],
+    "title": "{case_number}",
+    "sub": "{decision_date} \u00b7 {judge}",
+    "limit": 8
+   }
+  ]
+ },
+ "views": [
+  {
+   "id": "table",
+   "label": "Decisions",
+   "subtitle": "Every entry on the board's eight decision listings.",
+   "stats": [
+    {
+     "label": "Decisions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "Contract appeals",
+     "expr": "count(*) FILTER (WHERE case_type = 'Contract Disputes Act')"
+    },
+    {
+     "label": "Agencies",
+     "expr": "count(DISTINCT agency)"
+    },
+    {
+     "label": "Newest",
+     "expr": "CAST(max(decision_date) AS VARCHAR)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Decisions by year",
+     "label": "strftime(decision_date, '%Y')",
+     "unit": "decisions"
+    },
+    {
+     "type": "top",
+     "title": "Case type",
+     "label": "case_type",
+     "unit": "decisions",
+     "limit": 10
+    },
+    {
+     "type": "top",
+     "title": "Top agencies",
+     "label": "agency",
+     "unit": "decisions",
+     "limit": 12
+    },
+    {
+     "type": "top",
+     "title": "Judges",
+     "label": "judge",
+     "unit": "decisions",
+     "limit": 20
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "agency",
+  "columns": [
+   "agency",
+   "case_type",
+   "judge",
+   "decision_type"
+  ]
+ }
+}
