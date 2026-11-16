@@ -1,0 +1,293 @@
+{
+ "id": "flra-authority",
+ "title": "FLRA Authority decisions",
+ "blurb": "Every decision on the Federal Labor Relations Authority's listing, 1979 to now, with full text.",
+ "hfDataset": "abigailhaddad/flra-decisions",
+ "source": {
+  "format": "parquet",
+  "urls": [
+   "https://huggingface.co/datasets/abigailhaddad/flra-decisions/resolve/main/authority_decisions.parquet"
+  ]
+ },
+ "joins": [
+  {
+   "id": "tx",
+   "on": "html_url",
+   "urls": [
+    "https://huggingface.co/datasets/abigailhaddad/flra-decisions/resolve/main/decision_text.parquet"
+   ],
+   "sql": "SELECT html_url, text_status, text_source, text_chars, text FROM {file} WHERE \"table\" = 'authority'"
+  }
+ ],
+ "key": "html_url",
+ "covers": "One row per decision on the FLRA's Authority decisions listing: 10,462 decisions, 1979-01-23 to 2026-10-30, matching FLRA's own count. Listing read 2026-11-08 (decisions through 1982 re-read 2026-11-15). Text built 2026-11-16 from pages fetched 2026-11-15 and 2026-11-16. Unofficial copy; not updated daily yet.",
+ "caveats": [
+  "4 decisions have only part of the text (Text = partial): FLRA's page is cut off and there is no PDF text. 2 have none (Text = empty): the page is title-only and the PDF is a scan with no text layer.",
+  "Text is the decision body from the flra.gov page. 36 decisions take it from the PDF instead (Text = ok_pdf) because the page has no body, is cut off or shows a different decision.",
+  "Only 1,997 decisions have a PDF link; the other 8,465 are HTML only on flra.gov.",
+  "Older decisions have no separate party list: Parties is FLRA's one-line description of the case. Six citations appear twice, as the listing has them."
+ ],
+ "links": [
+  {
+   "label": "Dataset card",
+   "href": "https://huggingface.co/datasets/abigailhaddad/flra-decisions"
+  },
+  {
+   "label": "Code and checks",
+   "href": "https://github.com/abigailhaddad/flra-decisions"
+  },
+  {
+   "label": "FLRA Authority decisions",
+   "href": "https://www.flra.gov/decisions/authority-decisions"
+  }
+ ],
+ "searchColumns": [
+  "parties_or_detail",
+  "case_number",
+  "citation",
+  "arbitrator",
+  "text"
+ ],
+ "defaultSort": {
+  "col": "issuance_date",
+  "dir": "desc"
+ },
+ "pageSize": 50,
+ "columns": [
+  {
+   "key": "html_url",
+   "label": "Decision page",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "issuance_date",
+   "label": "Issued",
+   "type": "date",
+   "filter": "range"
+  },
+  {
+   "key": "citation",
+   "label": "Citation",
+   "type": "text"
+  },
+  {
+   "key": "case_number",
+   "label": "Case number",
+   "type": "text"
+  },
+  {
+   "key": "case_code",
+   "label": "Case code",
+   "type": "text",
+   "filter": "select",
+   "expr": "nullif(regexp_extract(case_number, '-([A-Z]{2})-', 1), '')",
+   "help": "The letters in the first case number (AR, NG, CA...). Read from the case number, not a label FLRA gives. Blank when the case number has no code."
+  },
+  {
+   "key": "parties_or_detail",
+   "label": "Parties",
+   "type": "text",
+   "filter": "text",
+   "help": "The parties as the listing gives them. For older decisions this is FLRA's one-line description of the case."
+  },
+  {
+   "key": "arbitrator",
+   "label": "Arbitrator",
+   "type": "text",
+   "filter": "text",
+   "suggest": true,
+   "help": "As the listing gives it, for arbitration cases. Blank on most decisions."
+  },
+  {
+   "key": "issuance_number",
+   "label": "Issuance No.",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "issuance_date_raw",
+   "label": "Date as listed",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "pdf_url",
+   "label": "PDF",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "pdf_size",
+   "label": "PDF size",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "digest_url",
+   "label": "Digest",
+   "type": "text",
+   "show": false
+  },
+  {
+   "key": "listing_page",
+   "label": "Listing page",
+   "type": "number",
+   "show": false
+  },
+  {
+   "key": "text_status",
+   "label": "Text",
+   "type": "text",
+   "filter": "select",
+   "show": false,
+   "join": "tx",
+   "help": "ok: from the decision's flra.gov page. ok_pdf: from the PDF, because the page has no body, is cut off or shows a different decision. partial: the page is cut off and there is no PDF text. empty: the page is title-only and the PDF is a scan with no text layer."
+  },
+  {
+   "key": "text_source",
+   "label": "Text from",
+   "type": "text",
+   "show": false,
+   "join": "tx"
+  },
+  {
+   "key": "text_chars",
+   "label": "Text length (characters)",
+   "type": "number",
+   "filter": "range",
+   "show": false,
+   "join": "tx"
+  },
+  {
+   "key": "text",
+   "label": "Decision text",
+   "type": "text",
+   "show": false,
+   "join": "tx"
+  }
+ ],
+ "record": {
+  "key": "html_url",
+  "title": [
+   "{citation}",
+   "{case_number}"
+  ],
+  "subtitle": "{case_number} \u00b7 {issuance_date}",
+  "sections": [
+   {
+    "title": "Decision",
+    "columns": [
+     "issuance_date",
+     "issuance_date_raw",
+     "citation",
+     "issuance_number",
+     "text_status",
+     "text_source",
+     "text_chars"
+    ]
+   },
+   {
+    "title": "Case",
+    "columns": [
+     "case_number",
+     "case_code",
+     "parties_or_detail",
+     "arbitrator"
+    ]
+   },
+   {
+    "title": "Source",
+    "columns": [
+     "html_url",
+     "pdf_url",
+     "pdf_size",
+     "digest_url",
+     "listing_page"
+    ]
+   }
+  ],
+  "text": [
+   {
+    "label": "Decision text (from FLRA's page, or the PDF when Text from is pdf; check flra.gov before quoting)",
+    "column": "text"
+   }
+  ],
+  "links": [
+   {
+    "label": "Decision on flra.gov",
+    "href": "{html_url}"
+   },
+   {
+    "label": "PDF on flra.gov",
+    "href": "{pdf_url}"
+   },
+   {
+    "label": "Digest on flra.gov",
+    "href": "{digest_url}"
+   }
+  ],
+  "related": [
+   {
+    "label": "Same case number",
+    "cols": [
+     "case_number"
+    ],
+    "title": "{citation}",
+    "sub": "{issuance_date}",
+    "limit": 10
+   }
+  ]
+ },
+ "views": [
+  {
+   "id": "table",
+   "label": "Decisions",
+   "subtitle": "Every decision on the Authority's listing.",
+   "stats": [
+    {
+     "label": "Decisions",
+     "expr": "count(*)"
+    },
+    {
+     "label": "With text",
+     "expr": "count(*) FILTER (WHERE text_status IN ('ok', 'ok_pdf'))"
+    },
+    {
+     "label": "Newest",
+     "expr": "CAST(max(issuance_date) AS VARCHAR)"
+    }
+   ],
+   "charts": [
+    {
+     "type": "year",
+     "title": "Decisions by year",
+     "label": "strftime(issuance_date, '%Y')",
+     "unit": "decisions"
+    },
+    {
+     "type": "top",
+     "title": "Case code",
+     "label": "case_code",
+     "unit": "decisions",
+     "limit": 15
+    },
+    {
+     "type": "top",
+     "title": "Arbitrators",
+     "label": "arbitrator",
+     "unit": "decisions",
+     "limit": 15
+    }
+   ]
+  }
+ ],
+ "pivot": {
+  "default": "case_code",
+  "columns": [
+   "case_code",
+   "arbitrator",
+   "text_status"
+  ]
+ }
+}

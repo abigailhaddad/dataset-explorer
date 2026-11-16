@@ -73,6 +73,7 @@ jobs:
           - dol-arb-decisions
           - nlrb-decisions
           - cbca-decisions
+          - flra-decisions
     env:
       HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
     steps:

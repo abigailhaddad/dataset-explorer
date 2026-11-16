@@ -169,5 +169,25 @@
    "contract-appeals",
    "civilian-board-of-contract-appeals"
   ]
+ },
+ {
+  "id": "flra-authority",
+  "title": "FLRA Authority decisions",
+  "blurb": "Every decision on the Federal Labor Relations Authority's listing, 1979 to now, with full text.",
+  "aliases": [
+   "flra-decisions",
+   "flra",
+   "authority-decisions"
+  ]
+ },
+ {
+  "id": "flra-fsip",
+  "title": "Impasses Panel decisions",
+  "blurb": "Every decision on the Federal Service Impasses Panel's listing, 1988 to 2025, with full text.",
+  "aliases": [
+   "fsip",
+   "fsip-decisions",
+   "impasses-panel"
+  ]
  }
 ]
