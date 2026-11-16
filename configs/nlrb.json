@@ -34,7 +34,8 @@
   "case_name",
   "case_number",
   "citation",
-  "jd_number"
+  "jd_number",
+  "summary_text"
  ],
  "defaultSort": {
   "col": "issuance_date",
