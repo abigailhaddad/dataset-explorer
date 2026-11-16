@@ -153,6 +153,7 @@ function checkConfig(c) {
   if (!(c.pageSize >= 1 && c.pageSize <= 500)) bad('pageSize must be 1 to 500');
   for (const j of c.joins || []) {
     if (!j.id || !j.on || !Array.isArray(j.urls) || !j.urls.length) bad('each join needs id, on and urls');
+    if (j.sql !== undefined && (typeof j.sql !== 'string' || !j.sql.includes('{file}'))) bad('join ' + j.id + ': sql must be a string that reads {file}');
   }
   for (const col of c.columns) {
     if (!['text', 'number', 'date', 'bool'].includes(col.type)) bad(col.key + ': type must be text, number, date or bool');
@@ -333,7 +334,9 @@ async function createView() {
   mainRel = readRel(await registerFiles('src', sourceUrls, ext), ext);
   joinRels = [];
   for (let i = 0; i < (config.joins || []).length; i++) {
-    joinRels.push(readRel(await registerFiles('join' + i + '_', config.joins[i].urls, ext), ext));
+    // A join's optional sql reshapes the file first (e.g. GROUP BY to get one row per key); {file} is the file.
+    const rel = readRel(await registerFiles('join' + i + '_', config.joins[i].urls, ext), ext);
+    joinRels.push(config.joins[i].sql ? '(' + config.joins[i].sql.split('{file}').join(rel) + ')' : rel);
   }
   let found = null;
   const joinFound = [];

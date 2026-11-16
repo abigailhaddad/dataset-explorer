@@ -50,7 +50,7 @@ A blank in a pick-list is `__blank__`. Bad values in a link are ignored with a n
 | `source.materialize` | `true` loads the files into memory once, for list pages, keeping only the columns the config uses. Record pages skip it. |
 | `source.copy` | `true` when the source file is a trimmed copy made for the explorer. The "Full dataset" link then goes to the Hugging Face dataset instead of the file. |
 | `source.csvOptions` | Extra `read_csv` options. CSVs are read as text, then cast per column. |
-| `joins` | `[{ "id", "on", "urls" }]`: another Parquet file, left-joined to the main table on column `on`. Columns that come from it set `"join": "<id>"` (and `"from"` if the source column has a different name). A joined file must have one row per `on` value. |
+| `joins` | `[{ "id", "on", "urls" }]`: another Parquet file, left-joined to the main table on column `on`. Columns that come from it set `"join": "<id>"` (and `"from"` if the source column has a different name). A joined file must have one row per `on` value. A join can set `"sql"`, a SELECT that reads the file as `{file}`, to get there first (the NLRB config groups several weekly summaries of one decision into one row). |
 | `key` | A column unique per row. Used for sort ties and record URLs. |
 | `covers`, `caveats`, `links` | The collapsed "About this data". Keep to three short caveats. Put column notes in `help`. |
 | `searchColumns`, `defaultSort`, `pageSize` | Search columns (text), `{ "col", "dir" }`, 1 to 500. |
